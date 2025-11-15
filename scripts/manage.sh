@@ -6,6 +6,12 @@ VENV="$BASE/.venv/bin"
 LOG_DIR="$BASE/logs"
 BOT_NAME="hate-guard-bot"
 
+build_frontend() {
+  cd "$BASE/web/frontend"
+  npm install
+  npm run build
+}
+
 start_core() {
   source "$BASE/.venv/bin/activate"
   (
@@ -19,6 +25,7 @@ stop_core() {
 }
 
 start_mini() {
+  build_frontend
   source "$BASE/.venv/bin/activate"
   (
     cd "$BASE"
