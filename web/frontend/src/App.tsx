@@ -815,13 +815,17 @@ export default function App() {
       </aside>
       <div className="content">
         <nav className="top-nav panel">
-          <button className="sidebar-toggle" type="button" onClick={toggleSidebar}>
-            {sidebarOpen ? "×" : "☰"}
+          <button className={clsx("sidebar-toggle", sidebarOpen && "open")} type="button" onClick={toggleSidebar} aria-label="Toggle menu">
+            <span className="toggle-line" />
+            <span className="toggle-line" />
+            <span className="toggle-line" />
           </button>
           <div className="brand">
-            <div className="logo-dot" />
+            <div className="logo-dot">
+              <span>CM</span>
+            </div>
             <div>
-              <p className="eyebrow">Hate Guard</p>
+              <p className="eyebrow">Content Moderator</p>
               <h1>Control Tower</h1>
             </div>
           </div>

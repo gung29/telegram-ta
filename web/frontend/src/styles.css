@@ -104,6 +104,7 @@ textarea {
   background: rgba(15, 23, 42, 0.85);
   color: var(--text);
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   box-shadow: 0 10px 30px rgba(2, 6, 23, 0.5);
@@ -121,8 +122,15 @@ textarea {
   width: 42px;
   height: 42px;
   border-radius: 16px;
-  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
-  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.45);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(56, 189, 248, 0.4));
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #f8fafc;
+  letter-spacing: 0.05em;
 }
 
 .eyebrow {
@@ -401,21 +409,21 @@ textarea {
 
 .moderation-status {
   grid-column: 1 / -1;
-  margin-top: var(--space-sm);
+  margin-top: 1.5rem;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-sm);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
 }
 
 .status-card {
   border-radius: var(--radius-md);
-  padding: var(--space-md);
+  padding: calc(var(--space-md) + 8px);
   border: 1px solid rgba(148, 163, 184, 0.25);
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(14, 165, 233, 0.15));
   box-shadow: inset 0 0 25px rgba(2, 6, 23, 0.65);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 1rem;
 }
 
 .status-card.muted {
@@ -1155,4 +1163,23 @@ textarea.input:focus {
   .mobile-nav-spacer {
     height: 12px;
   }
+}
+.sidebar-toggle .toggle-line {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.sidebar-toggle.open .toggle-line:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.sidebar-toggle.open .toggle-line:nth-child(2) {
+  opacity: 0;
+}
+
+.sidebar-toggle.open .toggle-line:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
 }
