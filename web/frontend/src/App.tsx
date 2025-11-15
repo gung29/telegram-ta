@@ -66,6 +66,17 @@ const ACTION_META: Record<string, { label: string; tone: "success" | "warning" |
   bypassed_admin: { label: "Admin", tone: "muted" },
 };
 const VIOLATION_ACTIONS = new Set(["warned", "muted", "banned", "blocked"]);
+const ACTION_COLOR_MAP: Record<string, string> = {
+  warned: "#f97316",
+  muted: "#fbbf24",
+  banned: "#f43f5e",
+  blocked: "#22c55e",
+  allowed: "#22c55e",
+};
+const TOP_OFFENDER_WINDOWS: Array<{ value: "24h" | "7d"; label: string }> = [
+  { value: "24h", label: "1 hari" },
+  { value: "7d", label: "7 hari" },
+];
 
 const notify = (message: string) => {
   const tg = getTelegram();
@@ -89,6 +100,8 @@ export default function App() {
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [statsWindow, setStatsWindow] = useState<"24h" | "7d">("24h");
+  const [topOffenderWindow, setTopOffenderWindow] = useState<"24h" | "7d">("24h");
+  const [offenderStats, setOffenderStats] = useState<StatsResponse | null>(null);
   const [activity, setActivity] = useState<ActivityResponse | null>(null);
   const [admins, setAdmins] = useState<AdminEntry[]>([]);
   const [muted, setMuted] = useState<MemberModeration[]>([]);
@@ -216,6 +229,32 @@ export default function App() {
     });
     return () => observer.disconnect();
   }, [sectionRefs]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    if (stats && stats.chat_id === chatId && statsWindow === topOffenderWindow) {
+      setOffenderStats(stats);
+      return;
+    }
+    setOffenderStats(null);
+    let cancelled = false;
+    const loadOffenderStats = async () => {
+      try {
+        const data = await fetchStats(chatId, topOffenderWindow);
+        if (!cancelled) {
+          setOffenderStats(data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          notify((error as Error).message ?? "Gagal memuat data top pelanggar");
+        }
+      }
+    };
+    loadOffenderStats();
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId, stats, statsWindow, topOffenderWindow]);
 
   const loadAll = useCallback(async () => {
     if (!chatId) return;
@@ -394,7 +433,36 @@ export default function App() {
       blocked: stats.blocked,
       total: stats.total_events,
     };
-  }, [stats]);
+  }, [offenderStats]);
+  const baseMetricCards = useMemo(
+    () => [
+      { label: "Total tindakan", value: summary.total, detail: "24 jam terakhir" },
+      { label: "Pesan dihapus", value: summary.deleted, detail: "Setiap pelanggaran" },
+      { label: "Diperingatkan", value: summary.warned, detail: "Mute otomatis" },
+      { label: "Diblokir", value: summary.blocked, detail: "Ban permanen", accent: "success" as const },
+    ],
+    [summary],
+  );
+  const moderationStatusCards = useMemo(
+    () => [
+      {
+        label: "Sedang dimute",
+        value: muted.length,
+        detail: "Mute aktif",
+        tone: "muted" as const,
+        description: "Pengguna dibatasi sementara hingga jadwal rilis otomatis.",
+      },
+      {
+        label: "Sedang diblokir",
+        value: banned.length,
+        detail: "Ban aktif",
+        tone: "banned" as const,
+        description: "Admin dapat melepas blokir kapan pun diperlukan.",
+      },
+    ],
+    [muted.length, banned.length],
+  );
+  const offenderList = offenderStats?.top_offenders ?? [];
 
   const lineChartData = useMemo(() => {
     if (!activity || activity.points.length === 0) return null;
@@ -444,7 +512,7 @@ export default function App() {
   }, [stats]);
 
   const topOffenderChartData = useMemo(() => {
-    const offenders = stats?.top_offenders ?? [];
+    const offenders = offenderStats?.top_offenders ?? [];
     if (!offenders.length) return null;
     const parsed = offenders
       .map((entry) => {
@@ -485,6 +553,29 @@ export default function App() {
           backgroundColor: "rgba(244,63,94,0.25)",
           tension: 0.35,
           fill: true,
+        },
+      ],
+    };
+  }, [events]);
+
+  const chatLogActionChartData = useMemo(() => {
+    if (!events.length) return null;
+    const counts: Record<string, number> = {};
+    events.forEach((event) => {
+      const key = event.action ?? "lainnya";
+      counts[key] = (counts[key] ?? 0) + 1;
+    });
+    const entries = Object.entries(counts);
+    if (!entries.length) return null;
+    const labels = entries.map(([label]) => label);
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Jumlah tindakan",
+          data: entries.map(([, value]) => value),
+          backgroundColor: labels.map((label) => ACTION_COLOR_MAP[label] ?? "#94a3b8"),
+          borderRadius: 8,
         },
       ],
     };
@@ -870,20 +961,25 @@ export default function App() {
             </div>
           </div>
           <div className="panel metrics-panel">
-            {[
-              { label: "Total tindakan", value: summary.total, detail: "24 jam terakhir" },
-              { label: "Pesan dihapus", value: summary.deleted, detail: "Setiap pelanggaran" },
-              { label: "Diperingatkan", value: summary.warned, detail: "Mute otomatis" },
-              { label: "Diblokir", value: summary.blocked, detail: "Ban permanen", accent: "success" },
-              { label: "Sedang dimute", value: muted.length, detail: "Aktif sekarang" },
-              { label: "Sedang diblokir", value: banned.length, detail: "Aktif sekarang" },
-            ].map((card) => (
+            {baseMetricCards.map((card) => (
               <div key={card.label} className="metric-card">
                 <p>{card.label}</p>
                 <h3 className={clsx(card.accent)}>{card.value}</h3>
                 <small>{card.detail}</small>
               </div>
             ))}
+            <div className="moderation-status">
+              {moderationStatusCards.map((card) => (
+                <div key={card.label} className={clsx("status-card", card.tone)}>
+                  <div className="status-top">
+                    <p>{card.label}</p>
+                    <span>{card.detail}</span>
+                  </div>
+                  <div className="status-value">{card.value}</div>
+                  <p className="status-description">{card.description}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -932,8 +1028,22 @@ export default function App() {
               )}
             </div>
             <div className="panel-subcard offenders">
-              <h4>Top pelanggar</h4>
-              {(stats?.top_offenders?.length ?? 0) === 0 ? (
+              <div className="offender-header">
+                <h4>Top pelanggar</h4>
+                <div className="chip-row compact">
+                  {TOP_OFFENDER_WINDOWS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={clsx("chip", topOffenderWindow === option.value && "active")}
+                      onClick={() => setTopOffenderWindow(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {offenderList.length === 0 ? (
                 <p className="muted">Belum ada pelaku dominan.</p>
               ) : (
                 <>
@@ -962,7 +1072,7 @@ export default function App() {
                     </div>
                   )}
                   <ul>
-                    {(stats?.top_offenders ?? []).map((entry) => (
+                    {offenderList.map((entry) => (
                       <li key={entry}>{entry}</li>
                     ))}
                   </ul>
@@ -1015,31 +1125,58 @@ export default function App() {
               </div>
             </div>
           </div>
-          {chatLogChartData && (
-            <div className="history-chart">
-              <h4>Tren skor hate (riwayat terbaru)</h4>
-              <Line
-                data={chatLogChartData}
-                options={{
-                  plugins: { legend: { display: false } },
-                  maintainAspectRatio: false,
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      suggestedMax: 100,
-                      ticks: {
-                        callback: (value) => `${value}%`,
-                        color: "#e2e8f0",
+          {(chatLogChartData || chatLogActionChartData) && (
+            <div className="history-charts">
+              {chatLogChartData && (
+                <div className="history-chart">
+                  <h4>Tren skor hate (riwayat terbaru)</h4>
+                  <Line
+                    data={chatLogChartData}
+                    options={{
+                      plugins: { legend: { display: false } },
+                      maintainAspectRatio: false,
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          suggestedMax: 100,
+                          ticks: {
+                            callback: (value) => `${value}%`,
+                            color: "#e2e8f0",
+                          },
+                          grid: { color: "rgba(255,255,255,0.07)" },
+                        },
+                        x: {
+                          grid: { display: false },
+                          ticks: { color: "#cbd5f5" },
+                        },
                       },
-                      grid: { color: "rgba(255,255,255,0.07)" },
-                    },
-                    x: {
-                      grid: { display: false },
-                      ticks: { color: "#cbd5f5" },
-                    },
-                  },
-                }}
-              />
+                    }}
+                  />
+                </div>
+              )}
+              {chatLogActionChartData && (
+                <div className="history-chart action">
+                  <h4>Distribusi tindakan (riwayat terbaru)</h4>
+                  <Bar
+                    data={chatLogActionChartData}
+                    options={{
+                      plugins: { legend: { display: false } },
+                      maintainAspectRatio: false,
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          ticks: { color: "#e2e8f0", precision: 0, stepSize: 1 },
+                          grid: { color: "rgba(255,255,255,0.07)" },
+                        },
+                        x: {
+                          ticks: { color: "#cbd5f5" },
+                          grid: { display: false },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
           <div className="table-wrapper">
