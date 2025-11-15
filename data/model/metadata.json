@@ -1,0 +1,18 @@
+{
+  "timestamp_utc": "2025-11-09T08:49:34.982884Z",
+  "best_checkpoint": "./results/checkpoint-1692",
+  "best_metric": 0.8807132467382578,
+  "metric_for_best_model": "f1_macro",
+  "label2id": {
+    "Non Hate Speech": 0,
+    "Hate Speech": 1
+  },
+  "id2label": {
+    "0": "Non Hate Speech",
+    "1": "Hate Speech"
+  },
+  "model_name": "indolem/indobertweet-base-uncased",
+  "best_threshold_f1": 0.4952692985534668,
+  "best_threshold_prec": 0.8295143246650696,
+  "best_threshold_recall": 0.41726550459861755
+}
