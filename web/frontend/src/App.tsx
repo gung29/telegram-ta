@@ -102,6 +102,7 @@ export default function App() {
   const [statsWindow, setStatsWindow] = useState<"24h" | "7d">("24h");
   const [topOffenderWindow, setTopOffenderWindow] = useState<"24h" | "7d">("24h");
   const [offenderStats, setOffenderStats] = useState<StatsResponse | null>(null);
+  const [offenderLoading, setOffenderLoading] = useState(false);
   const [activity, setActivity] = useState<ActivityResponse | null>(null);
   const [admins, setAdmins] = useState<AdminEntry[]>([]);
   const [muted, setMuted] = useState<MemberModeration[]>([]);
@@ -232,11 +233,18 @@ export default function App() {
 
   useEffect(() => {
     if (!chatId) return;
-    if (stats && stats.chat_id === chatId && statsWindow === topOffenderWindow) {
+    const canReuseStats =
+      stats &&
+      stats.chat_id === chatId &&
+      statsWindow === topOffenderWindow &&
+      stats.window === topOffenderWindow;
+    if (canReuseStats) {
+      setOffenderLoading(false);
       setOffenderStats(stats);
       return;
     }
     setOffenderStats(null);
+    setOffenderLoading(true);
     let cancelled = false;
     const loadOffenderStats = async () => {
       try {
@@ -247,6 +255,10 @@ export default function App() {
       } catch (error) {
         if (!cancelled) {
           notify((error as Error).message ?? "Gagal memuat data top pelanggar");
+        }
+      } finally {
+        if (!cancelled) {
+          setOffenderLoading(false);
         }
       }
     };
@@ -1043,7 +1055,11 @@ export default function App() {
                   ))}
                 </div>
               </div>
-              {offenderList.length === 0 ? (
+              {offenderLoading ? (
+                <p className="muted">Memuat data top pelanggar…</p>
+              ) : !offenderStats ? (
+                <p className="muted">Data top pelanggar belum tersedia.</p>
+              ) : offenderList.length === 0 ? (
                 <p className="muted">Belum ada pelaku dominan.</p>
               ) : (
                 <>
