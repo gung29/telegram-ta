@@ -1242,73 +1242,53 @@ export default function App() {
               {userActionsLoading ? "Memuat..." : "Refresh"}
             </button>
           </div>
-          <div className="table-wrapper compact scrollable">
-            <table>
-              <thead>
-                <tr>
-                  <th>Pengguna</th>
-                  <th>Peringatan (hari ini)</th>
-                  <th>Mute total</th>
-                  <th>Terakhir</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {userActions.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="muted">
-                      Belum ada data pengguna untuk ditampilkan.
-                    </td>
-                  </tr>
-                )}
-                {userActions.map((entry) => (
-                  <tr key={entry.user_id}>
-                    <td>
-                      <strong>{entry.username ?? entry.user_id}</strong>
-                      <p className="muted">ID {entry.user_id}</p>
-                    </td>
-                    <td>
-                      <div className="metric-pill warning">
-                        <span className="value">{entry.warnings_today}</span>
-                        <span className="label">peringatan</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="metric-pill mute">
-                        <span className="value">{entry.mutes_total}</span>
-                        <span className="label">mute total</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="last-activity">
-                        <span>Warning: {entry.last_warning ? dayjs(entry.last_warning).fromNow() : "-"}</span>
-                        <span>Mute: {entry.last_mute ? dayjs(entry.last_mute).fromNow() : "-"}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="action-buttons">
-                        <button
-                          type="button"
-                          className="btn outline small"
-                          disabled={resettingAction?.userId === entry.user_id && resettingAction?.action === "warned"}
-                          onClick={() => handleResetUserAction(entry.user_id, "warned")}
-                        >
-                          Reset warning
-                        </button>
-                        <button
-                          type="button"
-                          className="btn outline small"
-                          disabled={resettingAction?.userId === entry.user_id && resettingAction?.action === "muted"}
-                          onClick={() => handleResetUserAction(entry.user_id, "muted")}
-                        >
-                          Reset mute
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="user-actions-grid">
+            {userActions.length === 0 && !userActionsLoading && (
+              <p className="muted">Belum ada data pengguna untuk ditampilkan.</p>
+            )}
+            {userActionsLoading && <p className="muted">Memuat data pelanggar…</p>}
+            {userActions.map((entry) => (
+              <article key={entry.user_id} className="user-action-card">
+                <header>
+                  <div>
+                    <strong>{entry.username ?? entry.user_id}</strong>
+                    <p className="muted">ID {entry.user_id}</p>
+                  </div>
+                </header>
+                <div className="user-stats">
+                  <div className="metric-pill warning">
+                    <span className="value">{entry.warnings_today}</span>
+                    <span className="label">peringatan</span>
+                  </div>
+                  <div className="metric-pill mute">
+                    <span className="value">{entry.mutes_total}</span>
+                    <span className="label">mute total</span>
+                  </div>
+                </div>
+                <div className="last-activity">
+                  <span>Warning: {entry.last_warning ? dayjs(entry.last_warning).fromNow() : "-"}</span>
+                  <span>Mute: {entry.last_mute ? dayjs(entry.last_mute).fromNow() : "-"}</span>
+                </div>
+                <div className="action-buttons horizontal">
+                  <button
+                    type="button"
+                    className="btn outline small"
+                    disabled={resettingAction?.userId === entry.user_id && resettingAction?.action === "warned"}
+                    onClick={() => handleResetUserAction(entry.user_id, "warned")}
+                  >
+                    Reset warning
+                  </button>
+                  <button
+                    type="button"
+                    className="btn outline small"
+                    disabled={resettingAction?.userId === entry.user_id && resettingAction?.action === "muted"}
+                    onClick={() => handleResetUserAction(entry.user_id, "muted")}
+                  >
+                    Reset mute
+                  </button>
+                </div>
+              </article>
+            ))}
           </div>
         </div>
         <div className="history-actions">
