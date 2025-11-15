@@ -546,9 +546,54 @@ textarea {
   margin-top: var(--space-sm);
 }
 
+.table-wrapper.compact.scrollable {
+  overflow-x: auto;
+}
+
 .table-wrapper.compact table {
   min-width: 0;
   font-size: 0.8rem;
+}
+
+.metric-pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 18, 32, 0.8);
+}
+
+.metric-pill.warning {
+  border-color: rgba(249, 115, 22, 0.4);
+  background: rgba(249, 115, 22, 0.08);
+}
+
+.metric-pill.mute {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.metric-pill .value {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.metric-pill .label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.last-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
 .action-buttons {
@@ -560,6 +605,16 @@ textarea {
 .btn.small {
   padding: 6px 10px;
   font-size: 0.78rem;
+}
+
+.btn.outline {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: transparent;
+  color: var(--text);
+}
+
+.btn.outline:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.15);
 }
 
 .mini-chart {

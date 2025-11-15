@@ -1242,7 +1242,7 @@ export default function App() {
               {userActionsLoading ? "Memuat..." : "Refresh"}
             </button>
           </div>
-          <div className="table-wrapper compact">
+          <div className="table-wrapper compact scrollable">
             <table>
               <thead>
                 <tr>
@@ -1267,18 +1267,29 @@ export default function App() {
                       <strong>{entry.username ?? entry.user_id}</strong>
                       <p className="muted">ID {entry.user_id}</p>
                     </td>
-                    <td>{entry.warnings_today}</td>
-                    <td>{entry.mutes_total}</td>
                     <td>
-                      {entry.last_warning ? `Warning: ${dayjs(entry.last_warning).fromNow()}` : "Warning: -"}
-                      <br />
-                      {entry.last_mute ? `Mute: ${dayjs(entry.last_mute).fromNow()}` : "Mute: -"}
+                      <div className="metric-pill warning">
+                        <span className="value">{entry.warnings_today}</span>
+                        <span className="label">peringatan</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="metric-pill mute">
+                        <span className="value">{entry.mutes_total}</span>
+                        <span className="label">mute total</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="last-activity">
+                        <span>Warning: {entry.last_warning ? dayjs(entry.last_warning).fromNow() : "-"}</span>
+                        <span>Mute: {entry.last_mute ? dayjs(entry.last_mute).fromNow() : "-"}</span>
+                      </div>
                     </td>
                     <td>
                       <div className="action-buttons">
                         <button
                           type="button"
-                          className="btn ghost small"
+                          className="btn outline small"
                           disabled={resettingAction?.userId === entry.user_id && resettingAction?.action === "warned"}
                           onClick={() => handleResetUserAction(entry.user_id, "warned")}
                         >
@@ -1286,7 +1297,7 @@ export default function App() {
                         </button>
                         <button
                           type="button"
-                          className="btn ghost small"
+                          className="btn outline small"
                           disabled={resettingAction?.userId === entry.user_id && resettingAction?.action === "muted"}
                           onClick={() => handleResetUserAction(entry.user_id, "muted")}
                         >
