@@ -107,8 +107,7 @@ export default function App() {
   const [admins, setAdmins] = useState<AdminEntry[]>([]);
   const [muted, setMuted] = useState<MemberModeration[]>([]);
   const [banned, setBanned] = useState<MemberModeration[]>([]);
-  const [events, setEvents] = useState<EventEntry[]>([]);
-  const [reviewEvents, setReviewEvents] = useState<EventEntry[]>([]);
+  const [allEvents, setAllEvents] = useState<EventEntry[]>([]);
   const [testInput, setTestInput] = useState("");
   const [testResult, setTestResult] = useState("");
   const [pending, setPending] = useState(false);
@@ -118,7 +117,6 @@ export default function App() {
   const [retentionDraft, setRetentionDraft] = useState<number | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(0);
-  const [historyTotal, setHistoryTotal] = useState(0);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewPage, setReviewPage] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -127,10 +125,6 @@ export default function App() {
   const [verifyingEvent, setVerifyingEvent] = useState<number | null>(null);
   const [manualFilter, setManualFilter] = useState<"all" | "pending" | "verified" | "hate" | "non-hate">("all");
   const [detectionFilter, setDetectionFilter] = useState<"all" | "hate" | "non-hate">("all");
-  const historyFilterSignature = `${chatId ?? "none"}-${manualFilter}-${detectionFilter}-history`;
-  const reviewFilterSignature = `${chatId ?? "none"}-${manualFilter}-${detectionFilter}-review`;
-  const historyFilterRef = useRef(historyFilterSignature);
-  const reviewFilterRef = useRef(reviewFilterSignature);
   const manualFilterOptions: { value: "all" | "pending" | "verified" | "hate" | "non-hate"; label: string }[] = [
     { value: "all", label: "Semua" },
     { value: "pending", label: "Belum dilabeli" },
@@ -298,65 +292,25 @@ export default function App() {
     }
   }, [chatId, statsWindow]);
 
-  const loadHistory = useCallback(
-    async (page: number, options: { silent?: boolean } = {}) => {
-      if (!chatId) return;
-      const { silent = false } = options;
-      if (!silent) {
-        setHistoryLoading(true);
-      }
-      try {
+  const loadAllEvents = useCallback(async () => {
+    if (!chatId) return [];
+    setHistoryLoading(true);
+    setReviewLoading(true);
+    try {
+      const total = await fetchEventCount(chatId);
+      const totalPages = Math.max(1, Math.ceil(total / HISTORY_PAGE));
+      const aggregated: EventEntry[] = [];
+      for (let page = 0; page < totalPages; page++) {
         const offset = page * HISTORY_PAGE;
-        const data = await fetchEvents(chatId, HISTORY_PAGE, offset);
-        setEvents(data);
-      } finally {
-        if (!silent) {
-          setHistoryLoading(false);
-        }
+        const chunk = await fetchEvents(chatId, HISTORY_PAGE, offset);
+        aggregated.push(...chunk);
       }
-    },
-    [chatId],
-  );
-
-  const fetchHistoryCount = useCallback(async () => {
-    if (!chatId) return 0;
-    const total = await fetchEventCount(chatId);
-    setHistoryTotal(total);
-    return total;
+      return aggregated;
+    } finally {
+      setHistoryLoading(false);
+      setReviewLoading(false);
+    }
   }, [chatId]);
-
-  const loadReview = useCallback(
-    async (page: number, options: { silent?: boolean } = {}) => {
-      if (!chatId) return;
-      const { silent = false } = options;
-      if (!silent) setReviewLoading(true);
-      try {
-        const offset = page * REVIEW_PAGE;
-        const data = await fetchEvents(chatId, REVIEW_PAGE, offset);
-        setReviewEvents(data);
-      } finally {
-        if (!silent) setReviewLoading(false);
-      }
-    },
-    [chatId],
-  );
-
-  useEffect(() => {
-    if (!chatId) return;
-    setHistoryPage(0);
-    setReviewPage(0);
-    (async () => {
-      try {
-        await fetchHistoryCount();
-        await loadHistory(0, { silent: true });
-        await loadReview(0, { silent: true });
-      } catch (error) {
-        if (error instanceof HttpError && error.status === 403) {
-          setAccessDenied(true);
-        }
-      }
-    })();
-  }, [chatId, loadHistory, loadReview, fetchHistoryCount]);
 
   const refresh = useCallback(
     async (showSpinner = true) => {
@@ -364,15 +318,10 @@ export default function App() {
       if (showSpinner) setLoading(true);
       try {
         await loadAll();
-        const total = await fetchHistoryCount();
-        const totalPages = total > 0 ? Math.ceil(total / HISTORY_PAGE) : 1;
-        const safePage = Math.min(historyPage, totalPages - 1);
-        await loadHistory(safePage, { silent: true });
-        setHistoryPage(safePage);
-        const reviewTotalPages = total > 0 ? Math.ceil(total / REVIEW_PAGE) : 1;
-        const safeReviewPage = Math.min(reviewPage, reviewTotalPages - 1);
-        await loadReview(safeReviewPage, { silent: true });
-        setReviewPage(safeReviewPage);
+        const aggregated = await loadAllEvents();
+        setAllEvents(aggregated);
+        setHistoryPage(0);
+        setReviewPage(0);
         setLastUpdated(new Date());
       } catch (error) {
         if (error instanceof HttpError && error.status === 403) {
@@ -383,7 +332,7 @@ export default function App() {
         if (showSpinner) setLoading(false);
       }
     },
-    [chatId, loadAll, loadHistory, loadReview, historyPage, reviewPage, fetchHistoryCount],
+    [chatId, loadAll, loadAllEvents],
   );
 
   useEffect(() => {
@@ -549,8 +498,8 @@ export default function App() {
   }, [offenderStats]);
 
   const chatLogChartData = useMemo(() => {
-    if (!events.length) return null;
-    const sortedEvents = [...events].sort(
+    if (!allEvents.length) return null;
+    const sortedEvents = [...allEvents].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     );
     return {
@@ -566,12 +515,12 @@ export default function App() {
         },
       ],
     };
-  }, [events]);
+  }, [allEvents]);
 
   const chatLogActionChartData = useMemo(() => {
-    if (!events.length) return null;
+    if (!allEvents.length) return null;
     const counts: Record<string, number> = {};
-    events.forEach((event) => {
+    allEvents.forEach((event) => {
       const key = event.action ?? "lainnya";
       counts[key] = (counts[key] ?? 0) + 1;
     });
@@ -589,7 +538,7 @@ export default function App() {
         },
       ],
     };
-  }, [events]);
+  }, [allEvents]);
 
   const handleRunTest = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -723,128 +672,65 @@ export default function App() {
     [detectionFilter],
   );
 
-  const filteredHistoryEvents = useMemo(
-    () => events.filter((event) => filterManual(event) && filterDetection(event)),
-    [events, filterManual, filterDetection],
+  const filteredHistoryList = useMemo(
+    () => allEvents.filter((event) => filterManual(event) && filterDetection(event)),
+    [allEvents, filterManual, filterDetection],
   );
-  const filteredReviewEvents = useMemo(
-    () => reviewEvents.filter((event) => filterManual(event) && filterDetection(event)),
-    [reviewEvents, filterManual, filterDetection],
-  );
-
-  const findFirstMatchingPage = useCallback(
-    async (pageSize: number): Promise<{ page: number; data: EventEntry[] } | null> => {
-      if (!chatId) return null;
-      try {
-        const total = await fetchEventCount(chatId);
-        const totalPages = Math.max(1, Math.ceil(total / pageSize));
-        for (let page = 0; page < totalPages; page++) {
-          const offset = page * pageSize;
-          const data = await fetchEvents(chatId, pageSize, offset);
-          const matches = data.filter((event) => filterManual(event) && filterDetection(event));
-          if (matches.length > 0 || page === totalPages - 1) {
-            return { page, data };
-          }
-        }
-        return null;
-      } catch (error) {
-        throw error;
-      }
-    },
-    [chatId, filterManual, filterDetection],
-  );
+  const filteredReviewList = filteredHistoryList;
 
   useEffect(() => {
-    if (!chatId) return;
-    if (historyFilterRef.current === historyFilterSignature) return;
-    historyFilterRef.current = historyFilterSignature;
-    let cancelled = false;
-    const alignHistoryToFilter = async () => {
-      setHistoryLoading(true);
-      try {
-        const result = await findFirstMatchingPage(HISTORY_PAGE);
-        if (!cancelled && result) {
-          setHistoryPage(result.page);
-          setEvents(result.data);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          notify((error as Error).message ?? "Gagal memuat riwayat sesuai filter");
-        }
-      } finally {
-        if (!cancelled) {
-          setHistoryLoading(false);
-        }
-      }
-    };
-    alignHistoryToFilter();
-    return () => {
-      cancelled = true;
-    };
-  }, [chatId, historyFilterSignature, findFirstMatchingPage]);
+    setHistoryPage(0);
+    setReviewPage(0);
+  }, [chatId, manualFilter, detectionFilter]);
 
   useEffect(() => {
-    if (!chatId) return;
-    if (reviewFilterRef.current === reviewFilterSignature) return;
-    reviewFilterRef.current = reviewFilterSignature;
-    let cancelled = false;
-    const alignReviewToFilter = async () => {
-      setReviewLoading(true);
-      try {
-        const result = await findFirstMatchingPage(REVIEW_PAGE);
-        if (!cancelled && result) {
-          setReviewPage(result.page);
-          setReviewEvents(result.data);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          notify((error as Error).message ?? "Gagal memuat verifikasi sesuai filter");
-        }
-      } finally {
-        if (!cancelled) {
-          setReviewLoading(false);
-        }
-      }
-    };
-    alignReviewToFilter();
-    return () => {
-      cancelled = true;
-    };
-  }, [chatId, reviewFilterSignature, findFirstMatchingPage]);
+    const totalPages = Math.max(1, Math.ceil(filteredHistoryList.length / HISTORY_PAGE));
+    if (historyPage >= totalPages) {
+      setHistoryPage(totalPages - 1);
+    }
+  }, [filteredHistoryList.length, historyPage]);
 
-  const totalPages = Math.max(1, Math.ceil(historyTotal / HISTORY_PAGE));
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredReviewList.length / REVIEW_PAGE));
+    if (reviewPage >= totalPages) {
+      setReviewPage(totalPages - 1);
+    }
+  }, [filteredReviewList.length, reviewPage]);
+
+  const historyPageCount = Math.max(1, Math.ceil(filteredHistoryList.length / HISTORY_PAGE));
+  const visibleHistoryEvents = useMemo(
+    () => filteredHistoryList.slice(historyPage * HISTORY_PAGE, historyPage * HISTORY_PAGE + HISTORY_PAGE),
+    [filteredHistoryList, historyPage],
+  );
+  const reviewPageCount = Math.max(1, Math.ceil(filteredReviewList.length / REVIEW_PAGE));
+  const visibleReviewEvents = useMemo(
+    () => filteredReviewList.slice(reviewPage * REVIEW_PAGE, reviewPage * REVIEW_PAGE + REVIEW_PAGE),
+    [filteredReviewList, reviewPage],
+  );
+
   const hasPrevPage = historyPage > 0;
-  const hasNextPage = historyPage + 1 < totalPages;
-  const reviewTotalPages = Math.max(1, Math.ceil(historyTotal / REVIEW_PAGE));
+  const hasNextPage = historyPage + 1 < historyPageCount;
   const hasReviewPrev = reviewPage > 0;
-  const hasReviewNext = reviewPage + 1 < reviewTotalPages;
+  const hasReviewNext = reviewPage + 1 < reviewPageCount;
 
   const handleHistoryPrev = () => {
     if (!hasPrevPage || historyLoading) return;
-    const prev = historyPage - 1;
-    setHistoryPage(prev);
-    loadHistory(prev);
+    setHistoryPage((prev) => Math.max(0, prev - 1));
   };
 
   const handleHistoryNext = () => {
     if (!hasNextPage || historyLoading) return;
-    const next = historyPage + 1;
-    setHistoryPage(next);
-    loadHistory(next);
+    setHistoryPage((prev) => prev + 1);
   };
 
   const handleReviewPrev = () => {
     if (!hasReviewPrev || reviewLoading) return;
-    const prev = reviewPage - 1;
-    setReviewPage(prev);
-    loadReview(prev);
+    setReviewPage((prev) => Math.max(0, prev - 1));
   };
 
   const handleReviewNext = () => {
     if (!hasReviewNext || reviewLoading) return;
-    const next = reviewPage + 1;
-    setReviewPage(next);
-    loadReview(next);
+    setReviewPage((prev) => prev + 1);
   };
 
   const handleManualVerification = async (eventId: number, label: "hate" | "non-hate") => {
@@ -852,8 +738,7 @@ export default function App() {
     setVerifyingEvent(eventId);
     try {
       const updated = await verifyEvent(chatId, eventId, label);
-      setEvents((prev) => prev.map((entry) => (entry.id === updated.id ? updated : entry)));
-      setReviewEvents((prev) => prev.map((entry) => (entry.id === updated.id ? updated : entry)));
+      setAllEvents((prev) => prev.map((entry) => (entry.id === updated.id ? { ...entry, ...updated } : entry)));
     } catch (error) {
       notify((error as Error).message ?? "Gagal memverifikasi pesan");
     } finally {
@@ -1273,14 +1158,14 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {filteredHistoryEvents.length === 0 && (
+                {visibleHistoryEvents.length === 0 && (
                   <tr>
                     <td colSpan={6} className="muted">
                       Tidak ada data yang cocok dengan filter.
                     </td>
                   </tr>
                 )}
-                {filteredHistoryEvents.map((event) => {
+                {visibleHistoryEvents.map((event) => {
                   const meta = ACTION_META[event.action] ?? { label: event.action, tone: "muted" };
                   return (
                     <tr key={event.id}>
@@ -1314,7 +1199,7 @@ export default function App() {
             Sebelumnya
           </button>
           <span className="muted">
-            Halaman {Math.min(historyPage + 1, totalPages)} dari {totalPages}
+            Halaman {Math.min(historyPage + 1, historyPageCount)} dari {historyPageCount}
           </span>
           <button className="btn ghost" type="button" disabled={!hasNextPage || historyLoading} onClick={handleHistoryNext}>
             Berikutnya
@@ -1329,9 +1214,9 @@ export default function App() {
             <p className="muted">Pilih label hate/non-hate untuk meningkatkan akurasi model.</p>
           </div>
           <div className="verification-grid">
-            {!reviewLoading && filteredReviewEvents.length === 0 && <p className="muted">Tidak ada pesan yang cocok dengan filter.</p>}
+            {!reviewLoading && visibleReviewEvents.length === 0 && <p className="muted">Tidak ada pesan yang cocok dengan filter.</p>}
             {reviewLoading && <p className="muted">Memuat data verifikasi…</p>}
-            {filteredReviewEvents.map((event) => (
+            {visibleReviewEvents.map((event) => (
               <article key={`verify-${event.id}`} className={clsx("verification-card", event.manual_verified && "verified")}>
                 <header>
                   <div>
@@ -1377,7 +1262,7 @@ export default function App() {
               Sebelumnya
             </button>
             <span className="muted">
-              Halaman {Math.min(reviewPage + 1, reviewTotalPages)} dari {reviewTotalPages}
+              Halaman {Math.min(reviewPage + 1, reviewPageCount)} dari {reviewPageCount}
             </span>
             <button className="btn ghost" type="button" disabled={!hasReviewNext || reviewLoading} onClick={handleReviewNext}>
               Berikutnya
