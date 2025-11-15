@@ -560,6 +560,7 @@ def action_count(
         )
         .scalar()
     )
+    reset_at = _ensure_local_datetime(reset_at)
     query = (
         db.query(func.count(ModerationEvent.id))
         .filter(
@@ -603,7 +604,7 @@ def list_user_actions(
     _require_group_chat(chat_id)
     start_day, end_day = day_bounds()
     resets = {
-        (reset.user_id, reset.action): reset.reset_at
+        (reset.user_id, reset.action): _ensure_local_datetime(reset.reset_at) or EPOCH_START
         for reset in db.query(ActionCounterReset).filter(ActionCounterReset.chat_id == chat_id).all()
     }
     summaries: Dict[int, Dict[str, Any]] = {}
