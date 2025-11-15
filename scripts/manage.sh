@@ -8,7 +8,10 @@ BOT_NAME="hate-guard-bot"
 
 start_core() {
   source "$BASE/.venv/bin/activate"
-  nohup "$VENV/uvicorn" api.app:app --host 0.0.0.0 --port 8000 > "$LOG_DIR/core-api.out" 2>&1 &
+  (
+    cd "$BASE"
+    nohup "$VENV/uvicorn" api.app:app --host 0.0.0.0 --port 8000 > "$LOG_DIR/core-api.out" 2>&1 &
+  )
 }
 
 stop_core() {
@@ -17,7 +20,10 @@ stop_core() {
 
 start_mini() {
   source "$BASE/.venv/bin/activate"
-  nohup "$VENV/uvicorn" web.main:app --host 0.0.0.0 --port 8080 > "$LOG_DIR/mini-api.out" 2>&1 &
+  (
+    cd "$BASE"
+    nohup "$VENV/uvicorn" web.main:app --host 0.0.0.0 --port 8080 > "$LOG_DIR/mini-api.out" 2>&1 &
+  )
 }
 
 stop_mini() {
