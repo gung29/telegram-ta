@@ -151,9 +151,9 @@ const ensureDailyRecord = async (chatId: number, userId: number) => {
   const key = offenseKey(chatId, userId);
   const today = getLocalDayKey();
   let record = dailyOffenseMap.get(key);
-  if (!record || record.day !== today) {
-    const remote = await fetchActionCount(chatId, userId, "warned", "day");
-    record = { count: remote, day: today };
+  const remoteCount = await fetchActionCount(chatId, userId, "warned", "day");
+  if (!record || record.day !== today || remoteCount < record.count || remoteCount > record.count) {
+    record = { count: remoteCount, day: today };
     dailyOffenseMap.set(key, record);
   }
   return record;
@@ -168,8 +168,6 @@ const incrementDailyOffense = async (chatId: number, userId: number): Promise<nu
 
 const getMuteCount = async (chatId: number, userId: number): Promise<number> => {
   const key = offenseKey(chatId, userId);
-  const cached = muteCountCache.get(key);
-  if (cached !== null && cached !== undefined) return cached;
   const remote = await fetchActionCount(chatId, userId, "muted", "all");
   muteCountCache.set(key, remote);
   return remote;
