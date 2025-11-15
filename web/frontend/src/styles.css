@@ -78,6 +78,12 @@ textarea {
   padding-top: 56px;
 }
 
+.content.menu-open .top-nav {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .status-group {
   width: 100%;
   display: flex;

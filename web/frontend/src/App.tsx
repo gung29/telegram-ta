@@ -827,9 +827,11 @@ export default function App() {
       <div className={clsx("sidebar-overlay", sidebarOpen && "visible")} onClick={() => sidebarOpen && toggleSidebar()} />
       <aside className={clsx("sidebar panel", sidebarOpen ? "open" : "collapsed")}>
         <div className="brand compact">
-          <div className="logo-dot" />
+          <div className="logo-dot">
+            <span>CM</span>
+          </div>
           <div>
-            <p className="eyebrow">Hate Guard</p>
+            <p className="eyebrow">Content Moderator</p>
             <h2>Control Tower</h2>
           </div>
         </div>
@@ -847,7 +849,7 @@ export default function App() {
           ))}
         </div>
       </aside>
-      <div className="content">
+      <div className={clsx("content", sidebarOpen && "menu-open")}>
         <nav className="top-nav panel">
           <button className={clsx("sidebar-toggle", sidebarOpen && "open")} type="button" onClick={toggleSidebar} aria-label="Toggle menu">
             <span className="toggle-line" />
