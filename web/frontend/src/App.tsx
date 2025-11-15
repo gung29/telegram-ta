@@ -523,7 +523,7 @@ export default function App() {
     };
   }, [stats]);
 
-  const topOffenderChartData = useMemo(() => {
+  const topOffenderProgress = useMemo(() => {
     const offenders = offenderStats?.top_offenders ?? [];
     if (!offenders.length) return null;
     const parsed = offenders
@@ -537,18 +537,12 @@ export default function App() {
       })
       .filter((item): item is { label: string; value: number } => item !== null && Number.isFinite(item.value));
     if (!parsed.length) return null;
-    return {
-      labels: parsed.map((item) => item.label),
-      datasets: [
-        {
-          label: "Jumlah pelanggaran",
-          data: parsed.map((item) => item.value),
-          backgroundColor: "#f97316",
-          borderRadius: 6,
-        },
-      ],
-    };
-  }, [stats]);
+    const maxValue = Math.max(...parsed.map((item) => item.value), 1);
+    return parsed.map((item) => ({
+      ...item,
+      percent: Math.max((item.value / maxValue) * 100, 8),
+    }));
+  }, [offenderStats]);
 
   const chatLogChartData = useMemo(() => {
     if (!events.length) return null;
@@ -1062,38 +1056,24 @@ export default function App() {
               ) : offenderList.length === 0 ? (
                 <p className="muted">Belum ada pelaku dominan.</p>
               ) : (
-                <>
-                  {topOffenderChartData && (
-                    <div className="mini-chart">
-                      <Bar
-                        key={`top-offenders-${topOffenderWindow}-${offenderList.join("|")}`}
-                        data={topOffenderChartData}
-                        options={{
-                          indexAxis: "y" as const,
-                          plugins: { legend: { display: false } },
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          scales: {
-                            x: {
-                              beginAtZero: true,
-                              ticks: { precision: 0, color: "#e2e8f0" },
-                              grid: { color: "rgba(255,255,255,0.07)" },
-                            },
-                            y: {
-                              ticks: { color: "#f8fafc" },
-                              grid: { display: false },
-                            },
-                          },
-                        }}
-                      />
+                <div className="offender-bars">
+                  {topOffenderProgress?.map((item) => (
+                    <div key={item.label} className="offender-row">
+                      <div className="offender-label">
+                        <strong>{item.label}</strong>
+                        <span>{item.value}x</span>
+                      </div>
+                      <div className="offender-meter">
+                        <div className="offender-meter-fill" style={{ width: `${item.percent}%` }} />
+                      </div>
                     </div>
-                  )}
+                  ))}
                   <ul>
                     {offenderList.map((entry) => (
                       <li key={entry}>{entry}</li>
                     ))}
                   </ul>
-                </>
+                </div>
               )}
             </div>
           </div>
