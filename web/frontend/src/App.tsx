@@ -30,11 +30,21 @@ import {
 } from "./lib/api";
 import { ensureTelegramReady, getDebugChatId, getTelegram } from "./lib/telegram";
 import { clsx } from "clsx";
-import { Chart as ChartJS, LineElement, ArcElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend } from "chart.js";
-import { Line, Doughnut } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  LineElement,
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  Tooltip,
+  Legend,
+  BarElement,
+} from "chart.js";
+import { Line, Doughnut, Bar } from "react-chartjs-2";
 
 dayjs.extend(relativeTime);
-ChartJS.register(LineElement, ArcElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend);
+ChartJS.register(LineElement, ArcElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend, BarElement);
 
 const REFRESH_MS = 1000;
 const HISTORY_PAGE = 5;
@@ -432,6 +442,53 @@ export default function App() {
       ],
     };
   }, [stats]);
+
+  const topOffenderChartData = useMemo(() => {
+    const offenders = stats?.top_offenders ?? [];
+    if (!offenders.length) return null;
+    const parsed = offenders
+      .map((entry) => {
+        const match = entry.match(/^(.*)\s+\((\d+)\)$/);
+        if (!match) return null;
+        return {
+          label: match[1].trim(),
+          value: Number(match[2]),
+        };
+      })
+      .filter((item): item is { label: string; value: number } => item !== null && Number.isFinite(item.value));
+    if (!parsed.length) return null;
+    return {
+      labels: parsed.map((item) => item.label),
+      datasets: [
+        {
+          label: "Jumlah pelanggaran",
+          data: parsed.map((item) => item.value),
+          backgroundColor: "#f97316",
+          borderRadius: 6,
+        },
+      ],
+    };
+  }, [stats]);
+
+  const chatLogChartData = useMemo(() => {
+    if (!events.length) return null;
+    const sortedEvents = [...events].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+    return {
+      labels: sortedEvents.map((event) => dayjs(event.created_at).format("HH:mm:ss")),
+      datasets: [
+        {
+          label: "Skor kebencian (%)",
+          data: sortedEvents.map((event) => Number((event.prob_hate * 100).toFixed(2))),
+          borderColor: "#f43f5e",
+          backgroundColor: "rgba(244,63,94,0.25)",
+          tension: 0.35,
+          fill: true,
+        },
+      ],
+    };
+  }, [events]);
 
   const handleRunTest = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -876,12 +933,41 @@ export default function App() {
             </div>
             <div className="panel-subcard offenders">
               <h4>Top pelanggar</h4>
-              <ul>
-                {(stats?.top_offenders ?? []).length === 0 && <li className="muted">Belum ada pelaku dominan.</li>}
-                {(stats?.top_offenders ?? []).map((entry) => (
-                  <li key={entry}>{entry}</li>
-                ))}
-              </ul>
+              {(stats?.top_offenders?.length ?? 0) === 0 ? (
+                <p className="muted">Belum ada pelaku dominan.</p>
+              ) : (
+                <>
+                  {topOffenderChartData && (
+                    <div className="mini-chart">
+                      <Bar
+                        data={topOffenderChartData}
+                        options={{
+                          indexAxis: "y" as const,
+                          plugins: { legend: { display: false } },
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          scales: {
+                            x: {
+                              beginAtZero: true,
+                              ticks: { precision: 0, color: "#e2e8f0" },
+                              grid: { color: "rgba(255,255,255,0.07)" },
+                            },
+                            y: {
+                              ticks: { color: "#f8fafc" },
+                              grid: { display: false },
+                            },
+                          },
+                        }}
+                      />
+                    </div>
+                  )}
+                  <ul>
+                    {(stats?.top_offenders ?? []).map((entry) => (
+                      <li key={entry}>{entry}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
           </div>
         </section>
@@ -929,6 +1015,33 @@ export default function App() {
               </div>
             </div>
           </div>
+          {chatLogChartData && (
+            <div className="history-chart">
+              <h4>Tren skor hate (riwayat terbaru)</h4>
+              <Line
+                data={chatLogChartData}
+                options={{
+                  plugins: { legend: { display: false } },
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      suggestedMax: 100,
+                      ticks: {
+                        callback: (value) => `${value}%`,
+                        color: "#e2e8f0",
+                      },
+                      grid: { color: "rgba(255,255,255,0.07)" },
+                    },
+                    x: {
+                      grid: { display: false },
+                      ticks: { color: "#cbd5f5" },
+                    },
+                  },
+                }}
+              />
+            </div>
+          )}
           <div className="table-wrapper">
             <table>
               <thead>
