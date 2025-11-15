@@ -621,15 +621,16 @@ def list_user_actions(
     for event in warning_events:
         if not event.user_id:
             continue
+        event_time = _ensure_local_datetime(event.created_at)
         cutoff = max(start_day, resets.get((event.user_id, "warned"), start_day))
-        if event.created_at < cutoff:
+        if not event_time or event_time < cutoff:
             continue
         entry = summaries.setdefault(event.user_id, _build_action_summary_entry(event.user_id, event.username))
         if event.username and not entry["username"]:
             entry["username"] = event.username
         entry["warnings_today"] += 1
-        if not entry["last_warning"] or event.created_at > entry["last_warning"]:
-            entry["last_warning"] = event.created_at
+        if not entry["last_warning"] or event_time > entry["last_warning"]:
+            entry["last_warning"] = event_time
 
     mute_events = (
         db.query(ModerationEvent.user_id, ModerationEvent.username, ModerationEvent.created_at)
@@ -639,15 +640,16 @@ def list_user_actions(
     for event in mute_events:
         if not event.user_id:
             continue
+        event_time = _ensure_local_datetime(event.created_at)
         cutoff = resets.get((event.user_id, "muted"), EPOCH_START)
-        if event.created_at < cutoff:
+        if not event_time or event_time < cutoff:
             continue
         entry = summaries.setdefault(event.user_id, _build_action_summary_entry(event.user_id, event.username))
         if event.username and not entry["username"]:
             entry["username"] = event.username
         entry["mutes_total"] += 1
-        if not entry["last_mute"] or event.created_at > entry["last_mute"]:
-            entry["last_mute"] = event.created_at
+        if not entry["last_mute"] or event_time > entry["last_mute"]:
+            entry["last_mute"] = event_time
 
     sorted_entries = sorted(
         summaries.values(),
@@ -740,3 +742,9 @@ def verify_event(
     db.commit()
     db.refresh(event)
     return event
+def _ensure_local_datetime(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=LOCAL_TIMEZONE)
+    return value.astimezone(LOCAL_TIMEZONE)
