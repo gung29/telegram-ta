@@ -2,12 +2,15 @@ import os
 import json
 import time
 import math
+import re
+import torch
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import streamlit as st
 import textwrap
 from typing import Dict, Tuple, Optional
+from difflib import SequenceMatcher
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 # ============== PAGE CONFIG & THEME ==============
@@ -100,103 +103,90 @@ try:
 except Exception:
     def cache_dec(fn): return fn
 
+RISKY_TERMS: set[str] = {
+    "anjing",
+    "bangsat",
+    "babi",
+    "bodoh",
+    "brengsek",
+    "goblok",
+    "hina",
+    "kafir",
+    "tolol",
+}
+LEETSPEAK_TABLE = str.maketrans({
+    "0": "o",
+    "1": "i",
+    "!": "i",
+    "3": "e",
+    "4": "a",
+    "@": "a",
+    "5": "s",
+    "$": "s",
+    "6": "g",
+    "8": "b",
+    "9": "g",
+    "7": "t",
+})
+TOKEN_CHUNK_RE = re.compile(r"[A-Za-z0-9*@#\$%&!?\-_/]+")
+REPEATED_CHAR_RE = re.compile(r"(.)\\1{2,}")
+OBFUSCATION_SIMILARITY = 0.8
+
+
+def _clean_obfuscation_candidate(token: str) -> str:
+    lowered = token.lower().translate(LEETSPEAK_TABLE)
+    lowered = re.sub(r"[^a-z0-9]", "", lowered)
+    return REPEATED_CHAR_RE.sub(r"\\1\\1", lowered)
+
+
+def _match_risky_word(cleaned: str) -> Optional[str]:
+    if not cleaned:
+        return None
+    if cleaned in RISKY_TERMS:
+        return cleaned
+    for risky in RISKY_TERMS:
+        max_len = max(len(cleaned), len(risky))
+        if max_len < 4:
+            continue
+        if SequenceMatcher(None, cleaned, risky).ratio() >= OBFUSCATION_SIMILARITY:
+            return risky
+    return None
+
+
+def normalize_obfuscated_terms(text: str) -> Tuple[str, list[str]]:
+    """Replace obfuscated keywords (leet-speak, missing vowels, symbols) with clean forms."""
+    flagged: set[str] = set()
+
+    def _repl(match: re.Match[str]) -> str:
+        token = match.group(0)
+        canonical = _match_risky_word(_clean_obfuscation_candidate(token))
+        if canonical:
+            flagged.add(canonical)
+            return canonical
+        return token
+
+    normalized = TOKEN_CHUNK_RE.sub(_repl, str(text))
+    return normalized, sorted(flagged)
+
+
 @cache_dec
-def load_model(
-    model_dir: str | None = None,
-    onnx_filename: str = "model.onnx",
-    use_cuda_env: str | None = None,
-    intra_threads: int | None = None,
-    inter_threads: int | None = None,
-):
-    """
-    Load tokenizer + ONNX session dengan setting yang ramah container.
-    - model_dir default dari env MODEL_PATH (fallback: ./model)
-    - otomatis pilih CUDA kalau tersedia & diizinkan
-    - threads bisa diatur via argumen atau env
-    """
-    # ---------- paths ----------
+def load_model(model_dir: str | None = None):
+    """Muat tokenizer + model PyTorch dan siapkan device."""
     model_dir = model_dir or os.getenv("MODEL_PATH", "./model")
-    onnx_path = os.path.join(model_dir, onnx_filename)
-    if not os.path.exists(onnx_path):
-        raise FileNotFoundError(f"ONNX file not found at: {onnx_path}")
-
-    # ---------- tokenizer ----------
-    from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(model_dir, use_fast=True)
+    mdl = AutoModelForSequenceClassification.from_pretrained(model_dir)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    mdl.to(device)
+    mdl.eval()
+    return tok, mdl, device
 
-    # ---------- provider selection ----------
-    requested_cuda = (use_cuda_env or os.getenv("USE_CUDA", "0")).lower() in {"1","true","yes"}
-    avail = ort.get_available_providers()  # e.g. ["CUDAExecutionProvider", "CPUExecutionProvider"]
-    providers = ["CPUExecutionProvider"]
-    if requested_cuda and "CUDAExecutionProvider" in avail:
-        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-
-    # ---------- session options ----------
-    so = ort.SessionOptions()
-    so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-    # threads (hemat CPU di container)
-    import multiprocessing as mp
-    cpu = max(1, (mp.cpu_count() or 1))
-    so.intra_op_num_threads = int(intra_threads or os.getenv("INTRA_OP_THREADS", 1))
-    so.inter_op_num_threads = int(inter_threads or os.getenv("INTER_OP_THREADS", 1))
-    so.enable_mem_pattern = False
-    so.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-
-    # ---------- env runtime tunings ----------
-    # kurangi contention library BLAS/OpenMP di container
-    os.environ.setdefault("OMP_NUM_THREADS", "1")
-    os.environ.setdefault("MKL_NUM_THREADS", "1")
-    os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
-
-    # ---------- create session ----------
-    try:
-        sess = ort.InferenceSession(onnx_path, sess_options=so, providers=providers)
-    except Exception as e:
-        # error yang sering: libcudart tidak ada, model mismatch opset, dll
-        raise RuntimeError(f"Failed to create ONNX Runtime session with providers {providers}: {e}")
-
-    device = "CUDA" if "CUDAExecutionProvider" in sess.get_providers() else "CPU"
-
-    # ---------- optional warmup (biar cold-start cepat) ----------
-    try:
-        # bikin input dummy dari tokenizer (panjang kecil supaya cepat)
-        encoded = tok("warmup", return_tensors="np", padding="max_length", truncation=True, max_length=16)
-        feed = {i.name: encoded.get(i.name) for i in sess.get_inputs() if i.name in encoded}
-        if feed:
-            sess.run(None, feed)
-    except Exception:
-        # warmup gagal bukan masalah fatal; lanjut saja
-        pass
-
-    return tok, sess, device
-
-def count_parameters(model, onnx_path: Optional[str] = None) -> Optional[int]:
-    """
-    - Jika model PyTorch: hitung via .parameters()
-    - Jika ONNX: hitung dari jumlah elemen di semua initializer (butuh onnx_path)
-    - Jika tidak diketahui: kembalikan None
-    """
-    # PyTorch?
+def count_parameters(model, _: Optional[str] = None) -> Optional[int]:
+    """Hitung jumlah parameter model PyTorch."""
     if hasattr(model, "parameters"):
         try:
             return sum(p.numel() for p in model.parameters())
         except Exception:
-            pass
-
-    # ONNX?
-    if onnx_path and os.path.exists(onnx_path):
-        try:
-            m = onnx.load(onnx_path)
-            total = 0
-            for init in m.graph.initializer:
-                size = 1
-                for d in init.dims:
-                    size *= d
-                total += size
-            return int(total)
-        except Exception:
             return None
-
     return None
 
 def human_int(n: int) -> str:
@@ -234,36 +224,39 @@ def load_metadata(model_dir: str) -> Dict:
             pass
     return meta
 
-def preprocess_IndoBERTweet(text: str) -> str:
-    # ringan & konsisten dgn training
-    import re, emoji
-    text = str(text).lower()
-    text = re.sub(r'@\w+', '@USER', text)
-    text = re.sub(r'http\S+|www\S+', 'HTTPURL', text)
-    text = emoji.demojize(text, delimiters=(" ", " "))
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
+def preprocess_IndoBERTweet(text: str, *, return_info: bool = False):
+    """Preprocess sesuai skema training + normalisasi obfuscation sederhana."""
+    import emoji
 
-def predict_text(text: str, tokenizer, session: ort.InferenceSession, device_str: str, max_length: int = 128) -> Tuple[np.ndarray, int]:
-    # preprocessing sama
-    txt = preprocess_IndoBERTweet(text)
-    enc = tokenizer(txt, return_tensors="np", truncation=True, padding=True, max_length=max_length)
+    normalized_text, flagged = normalize_obfuscated_terms(str(text))
+    normalized_text = normalized_text.lower()
+    normalized_text = re.sub(r'@\w+', '@USER', normalized_text)
+    normalized_text = re.sub(r'http\S+|www\S+', 'HTTPURL', normalized_text)
+    normalized_text = emoji.demojize(normalized_text, delimiters=(" ", " "))
+    normalized_text = re.sub(r'\s+', ' ', normalized_text).strip()
 
-    # ONNX IndoBERT-like biasanya minta int64; cast aman
-    for k in ("input_ids", "attention_mask", "token_type_ids"):
-        if k in enc:
-            enc[k] = enc[k].astype("int64")
+    if return_info:
+        return normalized_text, flagged
+    return normalized_text
 
-    # Sesuaikan nama input yg tersedia di session
-    # (kebanyakan: input_ids, attention_mask, (opsional) token_type_ids)
-    input_names = {i.name for i in session.get_inputs()}
-    feeds = {k: v for k, v in enc.items() if k in input_names}
+def predict_text(
+    text: str,
+    tokenizer,
+    model,
+    device_str: str,
+    max_length: int = 128,
+    apply_preprocess: bool = True,
+) -> Tuple[np.ndarray, int]:
+    txt = preprocess_IndoBERTweet(text) if apply_preprocess else str(text)
+    enc = tokenizer(txt, return_tensors="pt", truncation=True, padding=True, max_length=max_length)
+    for k in enc:
+        enc[k] = enc[k].to(device_str)
 
-    logits = session.run(None, feeds)[0]   # (1, num_labels)
-    # softmax manual (stabil)
-    x = logits - logits.max(axis=1, keepdims=True)
-    probs = (np.exp(x) / np.exp(x).sum(axis=1, keepdims=True))[0]
-    pred = int(np.argmax(probs))
+    model.eval()
+    with torch.no_grad():
+        logits = model(**enc).logits
+        probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
+        pred = int(np.argmax(probs))
     return probs, pred
 
 @st.cache_data(show_spinner=False)
@@ -463,7 +456,6 @@ with st.sidebar:
     default_dir = os.path.abspath("model")  # <-- pakai subfolder 'model' relatif ke app.py
     model_subdir = st.text_input("Subfolder model (opsional)", value="")
     model_dir = os.path.join(default_dir, model_subdir) if model_subdir else default_dir
-    onnx_name = st.text_input("Nama file ONNX", value="model.onnx")
 
     threshold_mode = st.selectbox(
         "Threshold mode",
@@ -482,12 +474,12 @@ if reload_btn:
     st.cache_data.clear()
 
 try:
-    tokenizer, model, device = load_model(model_dir, onnx_name)
+    tokenizer, model, device = load_model(model_dir)
 except Exception as e:
     st.error(f"Gagal memuat model dari: `{model_dir}`\n\n{e}")
     st.stop()
 
-num_params = count_parameters(model, os.path.join(model_dir, onnx_name))
+num_params = count_parameters(model)
 # threshold pick
 thr = custom_thr if threshold_mode=="CUSTOM" else pick_threshold(model_dir, threshold_mode, fallback=0.5)
 
@@ -626,7 +618,15 @@ go1 = st.button("🚀 Prediksi")
 
 if go1 and sample.strip():
     t0 = time.time()
-    probs, pred = predict_text(sample, tokenizer, model, device, max_length=max_len)
+    processed_sample, obfuscated_hits = preprocess_IndoBERTweet(sample, return_info=True)
+    probs, pred = predict_text(
+        processed_sample,
+        tokenizer,
+        model,
+        device,
+        max_length=max_len,
+        apply_preprocess=False,
+    )
     dt = (time.time() - t0) * 1000
     prob_nonhate, prob_hate = float(probs[0]), float(probs[1])
     label_final = 1 if prob_hate >= thr else 0
@@ -640,8 +640,15 @@ if go1 and sample.strip():
     st.progress(min(1.0, prob_hate))
     st.write(f"Non Hate: **{prob_nonhate:.3f}**, Hate: **{prob_hate:.3f}**  (thr={thr:.3f})")
 
+    if obfuscated_hits:
+        obf_txt = ", ".join(obfuscated_hits)
+        st.warning(
+            f"Deteksi obfuscation → istilah terselubung **{obf_txt}** dinormalisasi sebelum prediksi.",
+            icon="🕵️",
+        )
+
     st.markdown("**Teks setelah preprocessing (IndoBERTweet):**")
-    st.code(preprocess_IndoBERTweet(sample), language="text")
+    st.code(processed_sample, language="text")
 
     # simpan riwayat di session_state
     hist = st.session_state.get("history", [])
@@ -686,25 +693,21 @@ if go1 and sample.strip():
     ax.text(thr, 0.5, f" thr={thr:.2f}", va="center", ha="left")
     for spine in ["top","right"]:
         ax.spines[spine].set_visible(False)
-    st.pyplot(fig_bar, use_container_width=True)
+    st.pyplot(fig_bar, width="stretch")
 
     # 3) Highlight istilah berisiko (heuristik ringan) pada teks hasil preprocessing
-    RISKY = {
-        # tambahkan daftar sesuai kebutuhanmu
-        "bodoh","goblok","anjing","bangsat","hina","tolol","brengsek","hina","babi","kafir"
-    }
     def highlight_risky(text):
         toks = text.split()
         out = []
         for t in toks:
-            if t.lower() in RISKY:
+            if t.lower() in RISKY_TERMS:
                 out.append(f"<span style='background:#1d4ed8; color:#fff; padding:0 .25rem; border-radius:.25rem'>{t}</span>")
             else:
                 out.append(t)
         return " ".join(out)
 
     st.markdown("**Highlight istilah berisiko (heuristik):**", unsafe_allow_html=True)
-    st.markdown(highlight_risky(preprocess_IndoBERTweet(sample)), unsafe_allow_html=True)
+    st.markdown(highlight_risky(processed_sample), unsafe_allow_html=True)
 
     # 4) (Opsional) titik “now @ threshold” pada PR-curve jika file ada
     try:
@@ -722,7 +725,7 @@ if go1 and sample.strip():
             plt.xlabel("Recall (Hate)"); plt.ylabel("Precision (Hate)")
             plt.title("Posisi Threshold Saat Ini pada PR Curve")
             plt.grid(True, linestyle="--", alpha=0.3); plt.legend()
-            st.pyplot(fig_now, use_container_width=True)
+            st.pyplot(fig_now, width="stretch")
 
             # tampilkan estimasi metrik di threshold aktif
             st.caption(f"≈ Precision: **{p_now:.3f}**, Recall: **{r_now:.3f}** (interpolasi dari PR table)")
@@ -871,15 +874,19 @@ if uploaded is not None:
         # Render HTML kustom ke placeholder agar bisa diperbarui tiap panggilan
         loader_placeholder.markdown(html, unsafe_allow_html=True)
 
-    def _prep(x: str) -> str:
-        return preprocess_IndoBERTweet(x) if do_preprocess else x
-
     t_start = time.time()
     render_loader(0, n, 0)  # state awal
 
     # Loop per TEKS → update realtime
     for idx, text in enumerate(texts, start=1):
-        probs, _ = predict_text(_prep(text), tokenizer, model, device, max_length=max_len)
+        probs, _ = predict_text(
+            text,
+            tokenizer,
+            model,
+            device,
+            max_length=max_len,
+            apply_preprocess=do_preprocess,
+        )
         phates.append(float(probs[1]))
         pnon.append(float(probs[0]))
         preds.append(1 if probs[1] >= active_thr else 0)
@@ -927,12 +934,12 @@ if uploaded is not None:
             y=alt.Y("count()", title="Count"),
             tooltip=[alt.Tooltip("count()", title="n")]
         ).properties(height=180)
-        st.altair_chart(hist, use_container_width=True)
+        st.altair_chart(hist, width="stretch")
     except Exception:
         fig_hist, axh = plt.subplots(figsize=(6,2))
         axh.hist(out["prob_hate"], bins=30)
         axh.set_xlabel("Prob(Hate)"); axh.set_ylabel("Count")
-        st.pyplot(fig_hist, use_container_width=True)
+        st.pyplot(fig_hist, width="stretch")
 
     # ---------- INTERACTIVE FILTER ----------
     st.markdown("### 🔍 Filter Interaktif")
@@ -954,7 +961,7 @@ if uploaded is not None:
 
     filtered = out[mask].reset_index(drop=True)
     st.caption(f"Hasil tersaring: **{len(filtered):,}** baris")
-    st.dataframe(filtered.head(50), use_container_width=True)
+    st.dataframe(filtered.head(50), width="stretch")
 
     # ---------- INTERESTING SAMPLES ----------
     st.markdown("### 🧪 Sample Menarik")
@@ -994,7 +1001,7 @@ if uploaded is not None:
             for j in range(2):
                 axcm.text(j, i, cm[i,j], ha="center", va="center")
         axcm.set_title("Confusion Matrix"); plt.tight_layout()
-        st.pyplot(fig_cm, use_container_width=True)
+        st.pyplot(fig_cm, width="stretch")
 
         # Reliability (calibration) kecil
         try:
@@ -1006,7 +1013,7 @@ if uploaded is not None:
             axcal.set_title("Reliability Curve (Hate)")
             axcal.set_xlabel("Mean predicted prob"); axcal.set_ylabel("Fraction of positives")
             axcal.grid(True, linestyle="--", alpha=0.3)
-            st.pyplot(fig_cal, use_container_width=True)
+            st.pyplot(fig_cal, width="stretch")
         except Exception:
             pass
 
@@ -1099,18 +1106,18 @@ with tab_pr:
                 vline = alt.Chart(pd.DataFrame({"r": [r_now]})).mark_rule(strokeDash=[4, 4]).encode(x="r:Q")
 
                 chart = (base + point_now + vline).interactive()
-                st.altair_chart(chart, use_container_width=True)
+                st.altair_chart(chart, width="stretch")
 
             except Exception:
                 fig = make_pr_plot(pr_df)
-                st.pyplot(fig, use_container_width=True)
+                st.pyplot(fig, width="stretch")
         else:
             st.info("`pr_curve_table_hate.csv` tidak ditemukan.")
 
         # Tabel kecil di bawah chart
         if pr_df is not None:
             with st.expander("🔎 Sample PR table (20 baris)"):
-                st.dataframe(pr_df.head(20), use_container_width=True, height=260)
+                st.dataframe(pr_df.head(20), width="stretch", height=260)
 
     with right:
         st.markdown("**Ringkasan @ threshold aktif**")
@@ -1133,7 +1140,7 @@ with tab_pr:
                 data=pr_df.to_csv(index=False).encode("utf-8"),
                 file_name="pr_curve_table_hate.csv",
                 mime="text/csv",
-                use_container_width=True
+                width="stretch"
             )
         else:
             st.metric("Precision", "—"); st.metric("Recall", "—"); st.metric("F1 max (tabel)", "—")
@@ -1143,7 +1150,7 @@ with tab_pr:
                 file_name="pr_curve_table_hate.csv",
                 mime="text/csv",
                 disabled=True,
-                use_container_width=True
+                width="stretch"
             )
 
         if thr_values:
@@ -1179,8 +1186,11 @@ with tab_art:
     if show_missing_only:
         art_df = art_df[~art_df["exists"]].reset_index(drop=True)
 
-    st.dataframe(art_df[["file", "exists", "size_kb", "path"]],
-                 use_container_width=True, height=280)
+    st.dataframe(
+        art_df[["file", "exists", "size_kb", "path"]],
+        width="stretch",
+        height=280,
+    )
 
 # ------------- TAB: HISTORY (SQLite) -------------
 with tab_hist:
@@ -1224,17 +1234,17 @@ with tab_hist:
 
         b1, b2, b3 = st.columns([1, 1, 2])
         with b1:
-            submitted = st.form_submit_button("🔎 Terapkan Filter", use_container_width=True)
+            submitted = st.form_submit_button("🔎 Terapkan Filter", width="stretch")
         with b2:
-            export_btn = st.form_submit_button("⬇️ Export CSV", use_container_width=True)
+            export_btn = st.form_submit_button("⬇️ Export CSV", width="stretch")
         with b3:
             # tombol refresh di kanan
-            refresh_btn = st.form_submit_button("🔄 Refresh", use_container_width=True)
+            refresh_btn = st.form_submit_button("🔄 Refresh", width="stretch")
 
     # Tombol Clear ALL di luar form, agar langsung merespon checkbox
     col_c1, col_c2, col_c3 = st.columns([6, 2, 2])
     with col_c3:
-        clear_btn = st.button("🗑️ Clear ALL", use_container_width=True, disabled=not clear_chk)
+        clear_btn = st.button("🗑️ Clear ALL", width="stretch", disabled=not clear_chk)
 
     if clear_btn and clear_chk:
         clear_history()
@@ -1274,7 +1284,11 @@ with tab_hist:
         with k4: st.metric("Median prob(Hate)", f"{hist_view['prob_hate'].median():.3f}")
 
         cols_order = ["time", "full_text", "prob_hate", "prob_nonhate", "pred_argmax", "pred_threshold", "threshold"]
-        st.dataframe(hist_view[cols_order], use_container_width=True, height=360)
+        st.dataframe(
+            hist_view[cols_order],
+            width="stretch",
+            height=360,
+        )
     else:
         st.caption("Belum ada record di database atau tidak ada yang cocok filter.")
 
@@ -1286,5 +1300,5 @@ with tab_hist:
             data=csv_bytes,
             file_name="history_filtered.csv",
             mime="text/csv",
-            use_container_width=True
+            width="stretch",
         )

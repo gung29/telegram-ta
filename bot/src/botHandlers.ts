@@ -18,6 +18,7 @@ import {
   upsertMemberModeration,
 } from "./apiClient";
 import { TTLCache } from "./cache";
+import { normalizeObfuscatedTerms } from "./textNormalization";
 import { EventPayload, MemberModeration, MemberStatus, SettingsResponse } from "./types";
 
 const settingsCache = new TTLCache<SettingsResponse>(60_000);
@@ -493,7 +494,8 @@ export const registerHandlers = (bot: TelegramBot) => {
     const text = match?.[1];
     if (!text) return bot.sendMessage(chatId, "Masukkan teks setelah perintah.");
     try {
-      const result = await runAdminTest(text);
+      const { normalized } = normalizeObfuscatedTerms(text);
+      const result = await runAdminTest(normalized);
       await bot.sendMessage(
         chatId,
         `🔬 Hasil uji:\nHate: ${(result.prob_hate * 100).toFixed(1)}%\nNon-hate: ${(result.prob_nonhate * 100).toFixed(1)}%\nLabel: ${result.label}`,
@@ -589,7 +591,8 @@ export const registerHandlers = (bot: TelegramBot) => {
       return bot.sendMessage(chatId, "Gunakan format: /why <teks>");
     }
     try {
-      const result = await predictText(text);
+      const { normalized } = normalizeObfuscatedTerms(text);
+      const result = await predictText(normalized);
       await bot.sendMessage(chatId, `🤖 Skor kebencian ${result.prob_hate.toFixed(2)}.`);
     } catch (error) {
       logger.error({ err: error }, "Why command failed");
@@ -600,8 +603,8 @@ export const registerHandlers = (bot: TelegramBot) => {
   bot.on("message", async (msg: TelegramBot.Message) => {
     if (!msg.chat || !msg.from) return;
     if (msg.chat.type !== "group" && msg.chat.type !== "supergroup") return;
-    const text = msg.text ?? msg.caption;
-    if (!text || text.startsWith("/")) return;
+    const originalText = msg.text ?? msg.caption;
+    if (!originalText || originalText.startsWith("/")) return;
     if (msg.from.is_bot) return;
 
     try {
@@ -609,15 +612,16 @@ export const registerHandlers = (bot: TelegramBot) => {
       await ensureGroupSync(bot, msg.chat);
       const settings = await getSettings(msg.chat.id);
       if (!settings.enabled) return;
+      const { normalized: normalizedText } = normalizeObfuscatedTerms(originalText);
       const isPrivileged = await requireAdmin(bot, msg.chat.id, msg.from.id);
-      const prediction = await predictText(text);
+      const prediction = await predictText(normalizedText);
       const threshold = settings.threshold;
       const baseEvent: EventPayload = {
         chat_id: msg.chat.id,
         user_id: msg.from.id,
         username: msg.from.username ?? msg.from.first_name ?? undefined,
         message_id: msg.message_id,
-        text: text.slice(0, 1000),
+        text: originalText.slice(0, 1000),
         prob_hate: prediction.prob_hate,
         prob_nonhate: prediction.prob_nonhate,
         action: "allowed",
@@ -661,7 +665,7 @@ export const registerHandlers = (bot: TelegramBot) => {
           userId: msg.from.id,
           score: prediction.prob_hate,
           warnCount: dailyOffenses,
-          text,
+          text: originalText,
         });
         await bot.sendMessage(msg.chat.id, warningText);
         return;
@@ -701,7 +705,7 @@ export const registerHandlers = (bot: TelegramBot) => {
         userId: msg.from.id,
         score: prediction.prob_hate,
         action: moderationAction,
-        text,
+        text: originalText,
         warnCount: dailyOffenses,
         reason: moderationReason,
       });

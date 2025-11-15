@@ -27,13 +27,11 @@ Mini App / proxy (web/main.py)
 ------------------------------
 - Start with Gunicorn (example):
 ```
-nohup /www/wwwroot/telegram-ta/.venv/bin/gunicorn \
-  -w 4 -k uvicorn.workers.UvicornWorker web.main:app \
-  -b 0.0.0.0:8080 > logs/mini-api.out 2>&1 &
+nohup uvicorn web.main:app --host 0.0.0.0 --port 8080 > logs/mini-api.out 2>&1 &
 ```
 - Stop:
 ```
-pkill -f "gunicorn.*web.main:app"
+pkill -f "uvicorn.*web.main:app"
 ```
 
 Node bot (pm2)
@@ -76,4 +74,45 @@ Logs
 tail -f logs/core-api.out
 tail -f logs/mini-api.out
 pm2 logs hate-guard-bot
+```
+
+Bash helper (opsional)
+----------------------
+Buat file `scripts/manage.sh` supaya gampang start/stop semua komponen (pastikan executable `chmod +x scripts/manage.sh`):
+```bash
+#!/usr/bin/env bash
+set -e
+CMD=$1
+BASE=/www/wwwroot/telegram-ta
+
+start() {
+  source $BASE/.venv/bin/activate
+  nohup uvicorn api.app:app --host 0.0.0.0 --port 8000 > $BASE/logs/core-api.out 2>&1 &
+  nohup $BASE/.venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker web.main:app -b 0.0.0.0:8080 > $BASE/logs/mini-api.out 2>&1 &
+  cd $BASE/bot && npm run build && pm2 start npm --name hate-guard-bot -- run start
+}
+
+stop() {
+  pkill -f "uvicorn.*api.app:app" || true
+  pkill -f "gunicorn.*web.main:app" || true
+  pm2 delete hate-guard-bot || true
+}
+
+restart() {
+  stop
+  start
+}
+
+case "$CMD" in
+  start) start ;;
+  stop) stop ;;
+  restart) restart ;;
+  *) echo "usage: scripts/manage.sh {start|stop|restart}"; exit 1 ;;
+esac
+```
+Contoh pakai:
+```
+scripts/manage.sh start
+scripts/manage.sh stop
+scripts/manage.sh restart
 ```
