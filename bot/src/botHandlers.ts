@@ -355,14 +355,15 @@ const formatWarningMessage = ({
 }) => {
   const name = username ? `@${username}` : `ID ${userId}`;
   const time = formatLocalDateTime();
+  const spoiler = `<tg-spoiler>${text.slice(0, 200)}</tg-spoiler>`;
   return (
-    "⚠️ Peringatan Otomatis\n" +
+    "<b>⚠️ Peringatan Otomatis</b>\n" +
     "─────────────────────────────\n" +
-    `👤 Nama     : ${name}\n` +
-    `📊 Skor     : ${(score * 100).toFixed(2)}%\n` +
+    `👤 Pengguna : ${name}\n` +
+    `📊 Skor kebencian : ${(score * 100).toFixed(2)}% (prob. hate speech)\n` +
     `🕒 Waktu    : ${time}\n` +
     "─────────────────────────────\n" +
-    `💬 Pesan: ${text.slice(0, 200)}\n\n` +
+    `💬 Pesan diawasi: ${spoiler}\n\n` +
     `⚠️ Peringatan ke-${warnCount} hari ini (maks 4). Pesan berikutnya akan dimoderasi lebih ketat.`
   );
 };
@@ -667,7 +668,7 @@ export const registerHandlers = (bot: TelegramBot) => {
           warnCount: dailyOffenses,
           text: originalText,
         });
-        await bot.sendMessage(msg.chat.id, warningText);
+        await bot.sendMessage(msg.chat.id, warningText, { parse_mode: "HTML" });
         return;
       }
 
