@@ -4,7 +4,7 @@ import csv
 import io
 import time
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Union
+from typing import Any, Dict, List, Union
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +22,7 @@ from common.models import (
     MemberModeration,
     MemberStatus,
     ModerationEvent,
+    ActionCounterReset,
     ensure_tables,
 )
 from common.timezone import LOCAL_TIMEZONE, day_bounds, now_local
@@ -42,6 +43,8 @@ from common.schemas import (
     SettingsPayload,
     SettingsResponse,
     StatsResponse,
+    UserActionSummary,
+    ActionResetPayload,
 )
 
 from .model_loader import classifier
@@ -59,6 +62,7 @@ app.add_middleware(
 PREDICTION_COUNTER = Counter("hate_guard_predictions_total", "Total number of predictions served")
 PREDICTION_LATENCY = Histogram("hate_guard_prediction_latency_seconds", "Latency of prediction endpoint")
 API_HEALTH = Gauge("hate_guard_api_status", "API health flag", multiprocess_mode="livesum")
+EPOCH_START = datetime(1970, 1, 1, tzinfo=LOCAL_TIMEZONE)
 
 ACTION_IGNORE = {"allowed", "bypassed_admin"}
 ACTION_WARNED = {"warned", "muted"}
@@ -547,6 +551,15 @@ def action_count(
     _require_group_chat(chat_id)
     action = action.lower()
     period = (period or "day").lower()
+    reset_at = (
+        db.query(ActionCounterReset.reset_at)
+        .filter(
+            ActionCounterReset.chat_id == chat_id,
+            ActionCounterReset.user_id == user_id,
+            ActionCounterReset.action == action,
+        )
+        .scalar()
+    )
     query = (
         db.query(func.count(ModerationEvent.id))
         .filter(
@@ -555,11 +568,122 @@ def action_count(
             ModerationEvent.action == action,
         )
     )
+    lower_bound = EPOCH_START
+    upper_bound: datetime | None = None
     if period == "day":
         start, end = day_bounds()
-        query = query.filter(ModerationEvent.created_at >= start, ModerationEvent.created_at < end)
+        lower_bound = start
+        upper_bound = end
+    if reset_at:
+        lower_bound = max(lower_bound, reset_at)
+    query = query.filter(ModerationEvent.created_at >= lower_bound)
+    if upper_bound:
+        query = query.filter(ModerationEvent.created_at < upper_bound)
     count = query.scalar() or 0
     return {"count": count}
+
+
+def _build_action_summary_entry(user_id: int, username: str | None) -> Dict[str, Any]:
+    return {
+        "user_id": user_id,
+        "username": username,
+        "warnings_today": 0,
+        "mutes_total": 0,
+        "last_warning": None,
+        "last_mute": None,
+    }
+
+
+@app.get("/admin/user_actions/{chat_id}", response_model=List[UserActionSummary])
+def list_user_actions(
+    chat_id: int,
+    _: None = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> List[UserActionSummary]:
+    _require_group_chat(chat_id)
+    start_day, end_day = day_bounds()
+    resets = {
+        (reset.user_id, reset.action): reset.reset_at
+        for reset in db.query(ActionCounterReset).filter(ActionCounterReset.chat_id == chat_id).all()
+    }
+    summaries: Dict[int, Dict[str, Any]] = {}
+
+    warning_events = (
+        db.query(ModerationEvent.user_id, ModerationEvent.username, ModerationEvent.created_at)
+        .filter(
+            ModerationEvent.chat_id == chat_id,
+            ModerationEvent.action == "warned",
+            ModerationEvent.created_at >= start_day,
+            ModerationEvent.created_at < end_day,
+        )
+        .all()
+    )
+    for event in warning_events:
+        if not event.user_id:
+            continue
+        cutoff = max(start_day, resets.get((event.user_id, "warned"), start_day))
+        if event.created_at < cutoff:
+            continue
+        entry = summaries.setdefault(event.user_id, _build_action_summary_entry(event.user_id, event.username))
+        if event.username and not entry["username"]:
+            entry["username"] = event.username
+        entry["warnings_today"] += 1
+        if not entry["last_warning"] or event.created_at > entry["last_warning"]:
+            entry["last_warning"] = event.created_at
+
+    mute_events = (
+        db.query(ModerationEvent.user_id, ModerationEvent.username, ModerationEvent.created_at)
+        .filter(ModerationEvent.chat_id == chat_id, ModerationEvent.action == "muted")
+        .all()
+    )
+    for event in mute_events:
+        if not event.user_id:
+            continue
+        cutoff = resets.get((event.user_id, "muted"), EPOCH_START)
+        if event.created_at < cutoff:
+            continue
+        entry = summaries.setdefault(event.user_id, _build_action_summary_entry(event.user_id, event.username))
+        if event.username and not entry["username"]:
+            entry["username"] = event.username
+        entry["mutes_total"] += 1
+        if not entry["last_mute"] or event.created_at > entry["last_mute"]:
+            entry["last_mute"] = event.created_at
+
+    sorted_entries = sorted(
+        summaries.values(),
+        key=lambda item: (-(item["warnings_today"] or 0), -(item["mutes_total"] or 0), item["user_id"]),
+    )
+    return [UserActionSummary(**entry) for entry in sorted_entries]
+
+
+@app.post("/admin/user_actions/{chat_id}/{user_id}/reset")
+def reset_user_action(
+    chat_id: int,
+    user_id: int,
+    payload: ActionResetPayload,
+    _: None = Depends(require_api_key),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    _require_group_chat(chat_id)
+    action = payload.action.lower()
+    if action not in {"warned", "muted"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Action harus warned atau muted")
+    now = now_local()
+    existing = (
+        db.query(ActionCounterReset)
+        .filter(
+            ActionCounterReset.chat_id == chat_id,
+            ActionCounterReset.user_id == user_id,
+            ActionCounterReset.action == action,
+        )
+        .first()
+    )
+    if existing:
+        existing.reset_at = now
+    else:
+        db.add(ActionCounterReset(chat_id=chat_id, user_id=user_id, action=action, reset_at=now))
+    db.commit()
+    return {"status": "ok", "action": action, "reset_at": now}
 
 
 @app.get("/admin/events/{chat_id}", response_model=List[EventSchema])

@@ -269,6 +269,20 @@ async def api_export(chat_id: int, ctx: Dict[str, Any] = Depends(get_context)):
     return Response(content=response.content, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
+@app.get("/api/user_actions")
+async def api_user_actions(chat_id: int, ctx: Dict[str, Any] = Depends(get_context)):
+    await ensure_admin_access(chat_id, ctx)
+    _assert_chat_access(ctx, chat_id)
+    return await proxy_core_api("GET", f"/admin/user_actions/{chat_id}")
+
+
+@app.post("/api/user_actions/{user_id}/reset")
+async def api_reset_user_actions(chat_id: int, user_id: int, payload: Dict[str, Any], ctx: Dict[str, Any] = Depends(get_context)):
+    await ensure_admin_access(chat_id, ctx)
+    _assert_chat_access(ctx, chat_id)
+    return await proxy_core_api("POST", f"/admin/user_actions/{chat_id}/{user_id}/reset", json_data=payload)
+
+
 @app.post("/api/test")
 async def api_test(chat_id: int, payload: Dict[str, Any], ctx: Dict[str, Any] = Depends(get_context)):
     await ensure_admin_access(chat_id, ctx)

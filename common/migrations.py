@@ -50,3 +50,20 @@ def apply_schema_patches() -> None:
         columns = _get_columns("member_moderations")
         if "expires_at" not in columns:
             _add_column("member_moderations", "expires_at DATETIME")
+
+    if "action_counter_resets" not in tables:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE action_counter_resets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        chat_id BIGINT NOT NULL,
+                        user_id BIGINT NOT NULL,
+                        action VARCHAR(32) NOT NULL,
+                        reset_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(chat_id, user_id, action)
+                    )
+                    """
+                )
+            )

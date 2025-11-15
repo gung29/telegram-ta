@@ -533,6 +533,35 @@ textarea {
   align-items: flex-start;
 }
 
+.user-actions-panel {
+  margin-top: var(--space-lg);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  background: rgba(4, 7, 18, 0.8);
+  box-shadow: inset 0 0 25px rgba(3, 5, 15, 0.65);
+}
+
+.table-wrapper.compact {
+  margin-top: var(--space-sm);
+}
+
+.table-wrapper.compact table {
+  min-width: 0;
+  font-size: 0.8rem;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn.small {
+  padding: 6px 10px;
+  font-size: 0.78rem;
+}
+
 .mini-chart {
   height: 220px;
   margin-bottom: var(--space-md);

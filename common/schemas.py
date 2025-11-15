@@ -152,3 +152,16 @@ class TimelinePoint(BaseModel):
 class ActivityResponse(BaseModel):
     chat_id: int
     points: List[TimelinePoint] = Field(default_factory=list)
+
+
+class UserActionSummary(BaseModel):
+    user_id: int
+    username: Optional[str]
+    warnings_today: int
+    mutes_total: int
+    last_warning: Optional[datetime]
+    last_mute: Optional[datetime]
+
+
+class ActionResetPayload(BaseModel):
+    action: Literal["warned", "muted"]

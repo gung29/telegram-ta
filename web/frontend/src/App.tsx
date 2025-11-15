@@ -18,6 +18,8 @@ import {
   runTest,
   updateSettings,
   verifyEvent,
+  fetchUserActions,
+  resetUserAction,
   GroupSummary,
   StatsResponse,
   SettingsResponse,
@@ -26,6 +28,7 @@ import {
   MemberStatus,
   ActivityResponse,
   EventEntry,
+  UserActionSummary,
   HttpError,
 } from "./lib/api";
 import { ensureTelegramReady, getDebugChatId, getTelegram } from "./lib/telegram";
@@ -123,6 +126,9 @@ export default function App() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [verifyingEvent, setVerifyingEvent] = useState<number | null>(null);
+  const [userActions, setUserActions] = useState<UserActionSummary[]>([]);
+  const [userActionsLoading, setUserActionsLoading] = useState(false);
+  const [resettingAction, setResettingAction] = useState<{ userId: number; action: "warned" | "muted" } | null>(null);
   const [manualFilter, setManualFilter] = useState<"all" | "pending" | "verified" | "hate" | "non-hate">("all");
   const [detectionFilter, setDetectionFilter] = useState<"all" | "hate" | "non-hate">("all");
   const manualFilterOptions: { value: "all" | "pending" | "verified" | "hate" | "non-hate"; label: string }[] = [
@@ -266,6 +272,19 @@ export default function App() {
     };
   }, [chatId, stats, statsWindow, topOffenderWindow]);
 
+  const refreshUserActions = useCallback(async () => {
+    if (!chatId) return;
+    setUserActionsLoading(true);
+    try {
+      const data = await fetchUserActions(chatId);
+      setUserActions(data);
+    } catch (error) {
+      notify((error as Error).message ?? "Gagal memuat data tindakan pengguna");
+    } finally {
+      setUserActionsLoading(false);
+    }
+  }, [chatId]);
+
   const loadAll = useCallback(async () => {
     if (!chatId) return;
     try {
@@ -284,13 +303,14 @@ export default function App() {
       setAdmins(adminsData);
       setMuted(mutedData);
       setBanned(bannedData);
+      await refreshUserActions();
     } catch (error) {
       if (error instanceof HttpError && error.status === 403) {
         setAccessDenied(true);
       }
       throw error;
     }
-  }, [chatId, statsWindow]);
+  }, [chatId, statsWindow, refreshUserActions]);
 
   const loadAllEvents = useCallback(async () => {
     if (!chatId) return [];
@@ -754,6 +774,20 @@ export default function App() {
     }
   };
 
+  const handleResetUserAction = async (userId: number, action: "warned" | "muted") => {
+    if (!chatId) return;
+    setResettingAction({ userId, action });
+    try {
+      await resetUserAction(chatId, userId, action);
+      await refreshUserActions();
+      notify(`Counter ${action === "warned" ? "peringatan" : "mute"} direset`);
+    } catch (error) {
+      notify((error as Error).message ?? "Gagal mereset counter");
+    } finally {
+      setResettingAction(null);
+    }
+  };
+
   const handleModeSelect = async (mode: SettingsResponse["mode"]) => {
     const preset = MODE_PRESETS[mode];
     const clamped = Math.min(THRESHOLD_MAX, Math.max(THRESHOLD_MIN, preset ?? (settings?.threshold ?? 0.62)));
@@ -1197,7 +1231,75 @@ export default function App() {
                 })}
               </tbody>
             </table>
+        </div>
+        <div className="user-actions-panel">
+          <div className="panel-header">
+            <div>
+              <p className="eyebrow">Kontrol pelanggar</p>
+              <h3>Peringatan & mute pengguna</h3>
+            </div>
+            <button className="btn ghost small" type="button" onClick={refreshUserActions} disabled={userActionsLoading}>
+              {userActionsLoading ? "Memuat..." : "Refresh"}
+            </button>
           </div>
+          <div className="table-wrapper compact">
+            <table>
+              <thead>
+                <tr>
+                  <th>Pengguna</th>
+                  <th>Peringatan (hari ini)</th>
+                  <th>Mute total</th>
+                  <th>Terakhir</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {userActions.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="muted">
+                      Belum ada data pengguna untuk ditampilkan.
+                    </td>
+                  </tr>
+                )}
+                {userActions.map((entry) => (
+                  <tr key={entry.user_id}>
+                    <td>
+                      <strong>{entry.username ?? entry.user_id}</strong>
+                      <p className="muted">ID {entry.user_id}</p>
+                    </td>
+                    <td>{entry.warnings_today}</td>
+                    <td>{entry.mutes_total}</td>
+                    <td>
+                      {entry.last_warning ? `Warning: ${dayjs(entry.last_warning).fromNow()}` : "Warning: -"}
+                      <br />
+                      {entry.last_mute ? `Mute: ${dayjs(entry.last_mute).fromNow()}` : "Mute: -"}
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        <button
+                          type="button"
+                          className="btn ghost small"
+                          disabled={resettingAction?.userId === entry.user_id && resettingAction?.action === "warned"}
+                          onClick={() => handleResetUserAction(entry.user_id, "warned")}
+                        >
+                          Reset warning
+                        </button>
+                        <button
+                          type="button"
+                          className="btn ghost small"
+                          disabled={resettingAction?.userId === entry.user_id && resettingAction?.action === "muted"}
+                          onClick={() => handleResetUserAction(entry.user_id, "muted")}
+                        >
+                          Reset mute
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
         <div className="history-actions">
           <button className="btn ghost" type="button" disabled={!hasPrevPage || historyLoading} onClick={handleHistoryPrev}>
             Sebelumnya

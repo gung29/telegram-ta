@@ -324,6 +324,7 @@ const formatModerationMessage = ({
   const name = username ? `@${username}` : `ID ${userId}`;
   const actionLabel = action === "banned" ? "diblokir" : "dimute";
   const time = formatLocalDateTime();
+  const spoiler = `<tg-spoiler>${text.slice(0, 200)}</tg-spoiler>`;
   return (
     "🚨 Pesan Telah Dihapus: Hate Speech Terdeteksi!\n" +
     "─────────────────────────────\n" +
@@ -723,7 +724,7 @@ export const registerHandlers = (bot: TelegramBot) => {
         logger.warn({ err: error }, "Failed to delete message");
       }
 
-      await bot.sendMessage(msg.chat.id, notifyText);
+      await bot.sendMessage(msg.chat.id, notifyText, { parse_mode: "HTML" });
     } catch (error) {
       logger.error({ err: error }, "Failed to process message");
     }

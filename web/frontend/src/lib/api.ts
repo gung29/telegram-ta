@@ -119,6 +119,15 @@ export interface EventEntry {
   manual_verified_at?: string | null;
 }
 
+export interface UserActionSummary {
+  user_id: number;
+  username?: string;
+  warnings_today: number;
+  mutes_total: number;
+  last_warning?: string | null;
+  last_mute?: string | null;
+}
+
 const qs = (params: Record<string, string | number>) =>
   new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
 
@@ -188,6 +197,15 @@ export const runTest = (chatId: number, text: string) =>
   baseFetch<TestResponse>(`/api/test?${qs({ chat_id: chatId })}`, {
     method: "POST",
     body: JSON.stringify({ text }),
+  });
+
+export const fetchUserActions = (chatId: number) =>
+  baseFetch<UserActionSummary[]>(`/api/user_actions?${qs({ chat_id: chatId })}`);
+
+export const resetUserAction = (chatId: number, userId: number, action: "warned" | "muted") =>
+  baseFetch(`/api/user_actions/${userId}/reset?${qs({ chat_id: chatId })}`, {
+    method: "POST",
+    body: JSON.stringify({ action }),
   });
 
 export const exportCsv = async (chatId: number) => {

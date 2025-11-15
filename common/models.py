@@ -89,6 +89,20 @@ class MemberModeration(Base):
     )
 
 
+class ActionCounterReset(Base):
+    __tablename__ = "action_counter_resets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger)
+    action: Mapped[str] = mapped_column(String(32))
+    reset_at: Mapped[datetime] = mapped_column(DateTime, default=now_local)
+
+    __table_args__ = (
+        UniqueConstraint("chat_id", "user_id", "action", name="uq_action_counter_reset"),
+    )
+
+
 def ensure_tables() -> None:
     Base.metadata.create_all(bind=engine)
     apply_schema_patches()
