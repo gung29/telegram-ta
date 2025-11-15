@@ -1066,6 +1066,7 @@ export default function App() {
                   {topOffenderChartData && (
                     <div className="mini-chart">
                       <Bar
+                        key={`top-offenders-${topOffenderWindow}-${offenderList.join("|")}`}
                         data={topOffenderChartData}
                         options={{
                           indexAxis: "y" as const,
