@@ -127,6 +127,10 @@ export default function App() {
   const [verifyingEvent, setVerifyingEvent] = useState<number | null>(null);
   const [manualFilter, setManualFilter] = useState<"all" | "pending" | "verified" | "hate" | "non-hate">("all");
   const [detectionFilter, setDetectionFilter] = useState<"all" | "hate" | "non-hate">("all");
+  const historyFilterSignature = `${chatId ?? "none"}-${manualFilter}-${detectionFilter}-history`;
+  const reviewFilterSignature = `${chatId ?? "none"}-${manualFilter}-${detectionFilter}-review`;
+  const historyFilterRef = useRef(historyFilterSignature);
+  const reviewFilterRef = useRef(reviewFilterSignature);
   const manualFilterOptions: { value: "all" | "pending" | "verified" | "hate" | "non-hate"; label: string }[] = [
     { value: "all", label: "Semua" },
     { value: "pending", label: "Belum dilabeli" },
@@ -727,6 +731,86 @@ export default function App() {
     () => reviewEvents.filter((event) => filterManual(event) && filterDetection(event)),
     [reviewEvents, filterManual, filterDetection],
   );
+
+  const findFirstMatchingPage = useCallback(
+    async (pageSize: number): Promise<{ page: number; data: EventEntry[] } | null> => {
+      if (!chatId) return null;
+      try {
+        const total = await fetchEventCount(chatId);
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        for (let page = 0; page < totalPages; page++) {
+          const offset = page * pageSize;
+          const data = await fetchEvents(chatId, pageSize, offset);
+          const matches = data.filter((event) => filterManual(event) && filterDetection(event));
+          if (matches.length > 0 || page === totalPages - 1) {
+            return { page, data };
+          }
+        }
+        return null;
+      } catch (error) {
+        throw error;
+      }
+    },
+    [chatId, filterManual, filterDetection],
+  );
+
+  useEffect(() => {
+    if (!chatId) return;
+    if (historyFilterRef.current === historyFilterSignature) return;
+    historyFilterRef.current = historyFilterSignature;
+    let cancelled = false;
+    const alignHistoryToFilter = async () => {
+      setHistoryLoading(true);
+      try {
+        const result = await findFirstMatchingPage(HISTORY_PAGE);
+        if (!cancelled && result) {
+          setHistoryPage(result.page);
+          setEvents(result.data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          notify((error as Error).message ?? "Gagal memuat riwayat sesuai filter");
+        }
+      } finally {
+        if (!cancelled) {
+          setHistoryLoading(false);
+        }
+      }
+    };
+    alignHistoryToFilter();
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId, historyFilterSignature, findFirstMatchingPage]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    if (reviewFilterRef.current === reviewFilterSignature) return;
+    reviewFilterRef.current = reviewFilterSignature;
+    let cancelled = false;
+    const alignReviewToFilter = async () => {
+      setReviewLoading(true);
+      try {
+        const result = await findFirstMatchingPage(REVIEW_PAGE);
+        if (!cancelled && result) {
+          setReviewPage(result.page);
+          setReviewEvents(result.data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          notify((error as Error).message ?? "Gagal memuat verifikasi sesuai filter");
+        }
+      } finally {
+        if (!cancelled) {
+          setReviewLoading(false);
+        }
+      }
+    };
+    alignReviewToFilter();
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId, reviewFilterSignature, findFirstMatchingPage]);
 
   const totalPages = Math.max(1, Math.ceil(historyTotal / HISTORY_PAGE));
   const hasPrevPage = historyPage > 0;
