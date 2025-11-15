@@ -16,3 +16,4 @@ orjson
 tokenizers==0.15.2
 emoji==2.12.1
 pyngrok==7.1.6
+gunicorn

@@ -87,10 +87,11 @@ async def ensure_admin_access(chat_id: int, ctx: Dict[str, Any]) -> None:
     if not isinstance(user, dict) or "id" not in user:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dashboard hanya untuk admin grup")
     user_id = int(user["id"])
-    admin_ids = set(app_settings.admin_ids)
     admins = await proxy_core_api("GET", f"/admin/groups/{chat_id}/admins")
-    admin_ids.update(int(entry.get("user_id")) for entry in admins if isinstance(entry, dict) and entry.get("user_id"))
-    if user_id not in admin_ids:
+    allowed_ids = {int(entry["user_id"]) for entry in admins if isinstance(entry, dict) and entry.get("user_id") is not None}
+    if not allowed_ids and app_settings.admin_ids:
+        allowed_ids.update(app_settings.admin_ids)
+    if user_id not in allowed_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dashboard hanya untuk admin grup")
 
 

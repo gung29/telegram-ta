@@ -1,0 +1,79 @@
+Deployment / Operations Cheat Sheet
+===================================
+
+Virtualenv activation
+---------------------
+```
+cd /www/wwwroot/telegram-ta
+python3 -m venv .venv           # first time
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Core API (model inference)
+--------------------------
+- Start (nohup):
+```
+cd /www/wwwroot/telegram-ta
+source .venv/bin/activate
+nohup uvicorn api.app:app --host 0.0.0.0 --port 8000 > logs/core-api.out 2>&1 &
+```
+- Stop (if using nohup):
+```
+pkill -f "uvicorn.*api.app:app"
+```
+
+Mini App / proxy (web/main.py)
+------------------------------
+- Start with Gunicorn (example):
+```
+nohup /www/wwwroot/telegram-ta/.venv/bin/gunicorn \
+  -w 4 -k uvicorn.workers.UvicornWorker web.main:app \
+  -b 0.0.0.0:8080 > logs/mini-api.out 2>&1 &
+```
+- Stop:
+```
+pkill -f "gunicorn.*web.main:app"
+```
+
+Node bot (pm2)
+--------------
+```
+cd /www/wwwroot/telegram-ta/bot
+npm install
+npm run build
+pm2 start npm --name hate-guard-bot -- run start   # first time
+pm2 restart hate-guard-bot                         # subsequent restarts
+pm2 logs hate-guard-bot
+```
+
+Reverse proxy domains
+---------------------
+- `mini.gungzy.xyz` → proxy to `127.0.0.1:8080`
+- `bot.gungzy.xyz` → proxy to `127.0.0.1:8081`
+
+Environment variables (example)
+-------------------------------
+```
+MINI_APP_BASE_URL=https://mini.gungzy.xyz
+WEBHOOK_URL=https://bot.gungzy.xyz/webhook
+ALLOWED_ORIGINS=https://mini.gungzy.xyz
+INFERENCE_API_URL=http://127.0.0.1:8000
+API_KEY=...
+```
+
+Manual API test (dev mode)
+--------------------------
+```
+curl -H "X-Debug-Chat-Id: -1002540749500" \
+     -H "X-Debug-User-Id: 609965713" \
+     http://127.0.0.1:8080/api/groups
+```
+
+Logs
+----
+```
+tail -f logs/core-api.out
+tail -f logs/mini-api.out
+pm2 logs hate-guard-bot
+```
