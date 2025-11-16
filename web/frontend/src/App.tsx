@@ -1282,6 +1282,7 @@ export default function App() {
             <div>
               <p className="eyebrow">Kontrol pelanggar</p>
               <h3>Peringatan & mute pengguna</h3>
+              <p className="muted subtext">Lihat riwayat peringatan & atur ulang batas tiap pengguna.</p>
             </div>
             <button className="btn ghost small" type="button" onClick={refreshUserActions} disabled={userActionsLoading}>
               {userActionsLoading ? "Memuat..." : "Refresh"}
