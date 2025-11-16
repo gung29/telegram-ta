@@ -961,7 +961,13 @@ export default function App() {
                     <button
                       type="button"
                       className={clsx("tab", modeSelection === "custom" && "active")}
-                      onClick={() => setModeSelection("custom")}
+                      onClick={() => {
+                        if (!chatId) return;
+                        setThresholdState((prev) => ({
+                          ...prev,
+                          [chatId]: { value: thresholdPreview, mode: "custom" },
+                        }));
+                      }}
                     >
                       custom
                     </button>
