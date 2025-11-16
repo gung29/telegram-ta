@@ -1336,17 +1336,6 @@ export default function App() {
               </article>
             ))}
           </div>
-          <div className="history-actions">
-            <button className="btn ghost" type="button" disabled={!hasReviewPrev || reviewLoading} onClick={handleReviewPrev}>
-              Sebelumnya
-            </button>
-            <span className="muted">
-              Halaman {Math.min(reviewPage + 1, reviewPageCount)} dari {reviewPageCount}
-            </span>
-            <button className="btn ghost" type="button" disabled={!hasReviewNext || reviewLoading} onClick={handleReviewNext}>
-              Berikutnya
-            </button>
-          </div>
         </div>
         <div className="verification-panel">
           <div className="panel-header">
@@ -1530,9 +1519,20 @@ function ModerationForm({ title, status, data, onSubmit, onRelease }: Moderation
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
-    </div>
+            </table>
+          </div>
+          <div className="history-actions">
+            <button className="btn ghost" type="button" disabled={!hasPrevPage || historyLoading} onClick={handleHistoryPrev}>
+              Sebelumnya
+            </button>
+            <span className="muted">
+              Halaman {Math.min(historyPage + 1, historyPageCount)} dari {historyPageCount}
+            </span>
+            <button className="btn ghost" type="button" disabled={!hasNextPage || historyLoading} onClick={handleHistoryNext}>
+              Berikutnya
+            </button>
+          </div>
+        </div>
   );
 }
 
