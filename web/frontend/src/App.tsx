@@ -887,24 +887,26 @@ export default function App() {
             </div>
           </div>
           <div className="status-group">
-            <div className="live-status">
+            <div className="status-card">
               <span className={clsx("status-indicator", autoRefresh ? (loading ? "syncing" : "live") : "paused")} />
               <div>
                 <strong>{autoRefresh ? (loading ? "Sinkronisasi" : "Realtime aktif") : "Mode manual"}</strong>
                 <p>{lastUpdated ? `Last update ${dayjs(lastUpdated).fromNow()}` : "Menunggu data..."}</p>
               </div>
             </div>
-            <div className="nav-actions">
-              <button className={clsx("toggle", autoRefresh ? "on" : "off")} type="button" onClick={handleAutoRefreshToggle}>
+            <div className="status-controls">
+              <button className={clsx("status-toggle", autoRefresh ? "on" : "off")} type="button" onClick={handleAutoRefreshToggle}>
                 <span className="bullet" />
                 {autoRefresh ? "Realtime ON" : "Realtime OFF"}
               </button>
-              <button className="btn ghost" onClick={() => refresh()}>
-                Refresh Data
-              </button>
-              <button className="btn primary" onClick={handleExport}>
-                Unduh CSV
-              </button>
+              <div className="status-buttons">
+                <button className="btn ghost" onClick={() => refresh()}>
+                  Refresh Data
+                </button>
+                <button className="btn primary" onClick={handleExport}>
+                  Unduh CSV
+                </button>
+              </div>
             </div>
           </div>
         </nav>
