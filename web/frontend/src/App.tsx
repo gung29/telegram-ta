@@ -54,6 +54,8 @@ const HISTORY_PAGE = 5;
 const REVIEW_PAGE = 5;
 const THRESHOLD_MIN = 0.2;
 const THRESHOLD_MAX = 0.95;
+type ModeSelection = SettingsResponse["mode"] | "custom";
+
 const MODE_PRESETS: Record<SettingsResponse["mode"], number> = {
   precision: 0.561,
   balanced: 0.561,
@@ -129,6 +131,7 @@ export default function App() {
   const [userActions, setUserActions] = useState<UserActionSummary[]>([]);
   const [userActionsLoading, setUserActionsLoading] = useState(false);
   const [resettingAction, setResettingAction] = useState<{ userId: number; action: "warned" | "muted" } | null>(null);
+  const [modeSelection, setModeSelection] = useState<ModeSelection>("balanced");
   const [manualFilter, setManualFilter] = useState<"all" | "pending" | "verified" | "hate" | "non-hate">("all");
   const [detectionFilter, setDetectionFilter] = useState<"all" | "hate" | "non-hate">("all");
   const manualFilterOptions: { value: "all" | "pending" | "verified" | "hate" | "non-hate"; label: string }[] = [
@@ -379,6 +382,12 @@ export default function App() {
     if (!settings) return;
     setThresholdPreview(settings.threshold);
     setRetentionDraft(settings.retention_days);
+    const preset = MODE_PRESETS[settings.mode];
+    if (Math.abs(settings.threshold - preset) > 0.005) {
+      setModeSelection("custom");
+    } else {
+      setModeSelection(settings.mode);
+    }
   }, [settings]);
 
   const handleSettingsUpdate = async (payload: Partial<SettingsResponse>) => {
@@ -792,6 +801,7 @@ export default function App() {
     const preset = MODE_PRESETS[mode];
     const clamped = Math.min(THRESHOLD_MAX, Math.max(THRESHOLD_MIN, preset ?? (settings?.threshold ?? 0.62)));
     setThresholdPreview(clamped);
+    setModeSelection(mode);
     await handleSettingsUpdate({ mode, threshold: Number(clamped.toFixed(2)) });
   };
 
@@ -931,12 +941,19 @@ export default function App() {
                       <button
                         key={mode}
                         type="button"
-                        className={clsx("tab", settings?.mode === mode && "active")}
+                        className={clsx("tab", modeSelection === mode && "active")}
                         onClick={() => handleModeSelect(mode)}
                       >
                         {mode}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className={clsx("tab", modeSelection === "custom" && "active")}
+                      onClick={() => setModeSelection("custom")}
+                    >
+                      custom
+                    </button>
                   </div>
                 </div>
                 <div className="control-row threshold">
@@ -950,7 +967,10 @@ export default function App() {
                     max={THRESHOLD_MAX}
                     step={0.01}
                     value={thresholdPreview ?? settings?.threshold ?? 0.62}
-                    onChange={(event) => setThresholdPreview(Number(event.target.value))}
+                    onChange={(event) => {
+                      setModeSelection("custom");
+                      setThresholdPreview(Number(event.target.value));
+                    }}
                     onMouseUp={commitThreshold}
                     onPointerUp={commitThreshold}
                     onTouchEnd={commitThreshold}

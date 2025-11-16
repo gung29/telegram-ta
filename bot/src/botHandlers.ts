@@ -21,7 +21,7 @@ import { TTLCache } from "./cache";
 import { normalizeObfuscatedTerms } from "./textNormalization";
 import { EventPayload, MemberModeration, MemberStatus, SettingsResponse } from "./types";
 
-const settingsCache = new TTLCache<SettingsResponse>(60_000);
+const settingsCache = new TTLCache<SettingsResponse>(5_000);
 const backendAdminCache = new TTLCache<number[]>(120_000);
 const telegramAdminCache = new TTLCache<number[]>(300_000);
 const offenseCache = new TTLCache<number>(15 * 60 * 1000);
