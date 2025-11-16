@@ -16,5 +16,5 @@ web/static/dist/
 web/frontend/node_modules/
 web/frontend/dist/
 bot/node_modules
-*.safetensor
+*.safetensors
 bot/dist/
