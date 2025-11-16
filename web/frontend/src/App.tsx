@@ -214,30 +214,8 @@ export default function App() {
     if (target) {
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+    setSidebarOpen(false);
   };
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible[0]) {
-          const sectionId = visible[0].target.getAttribute("data-section") as SectionKey | null;
-          if (sectionId) {
-            setActiveSection(sectionId);
-          }
-        }
-      },
-      { threshold: 0.35, rootMargin: "-25% 0px -25% 0px" },
-    );
-    Object.values(sectionRefs).forEach((ref) => {
-      if (ref.current) {
-        observer.observe(ref.current);
-      }
-    });
-    return () => observer.disconnect();
-  }, [sectionRefs]);
 
   useEffect(() => {
     if (!chatId) return;
@@ -868,7 +846,6 @@ export default function App() {
                   onClick={(e) => {
                     e.preventDefault();
                     handleSectionClick(item.key);
-                    setSidebarOpen(false);
                   }}
                 >
                   <span className="nav-icon">{item.icon}</span>
@@ -882,7 +859,7 @@ export default function App() {
 
       <div className={clsx("sidebar-overlay", sidebarOpen && "visible")} onClick={() => setSidebarOpen(false)} />
 
-      <main className={clsx("content", !sidebarOpen && "full-width")}>
+      <main className="content">
         <nav className="top-nav">
           <div className="nav-left">
             <button className="sidebar-toggle" onClick={toggleSidebar}>
@@ -897,17 +874,17 @@ export default function App() {
           </div>
           
           <div className="nav-actions">
-            <button className="btn btn-ghost" onClick={() => refresh()}>
+            <button className="btn btn-ghost btn-sm" onClick={() => refresh()}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
               </svg>
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
             </button>
-            <button className="btn btn-primary" onClick={handleExport}>
+            <button className="btn btn-primary btn-sm" onClick={handleExport}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
               </svg>
-              Unduh CSV
+              <span className="hidden sm:inline">CSV</span>
             </button>
             <label className="toggle">
               <input
@@ -928,10 +905,10 @@ export default function App() {
               <p className="panel-subtitle">ID: {chatId}</p>
             </div>
             <button
-              className={clsx("btn", settings?.enabled ? "btn-success" : "btn-secondary")}
+              className={clsx("btn btn-sm", settings?.enabled ? "btn-success" : "btn-secondary")}
               onClick={() => handleSettingsUpdate({ enabled: !(settings?.enabled ?? false) })}
             >
-              {settings?.enabled ? "Moderasi aktif" : "Moderasi nonaktif"}
+              {settings?.enabled ? "Aktif" : "Nonaktif"}
             </button>
           </div>
 
@@ -947,7 +924,7 @@ export default function App() {
             ))}
           </div>
 
-          <div className="grid grid-cols-2" style={{ marginTop: "2rem" }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2" style={{ marginTop: "1rem" }}>
             {moderationStatusCards.map((card, index) => (
               <div key={card.label} className="card" style={{ animationDelay: `${index * 0.1}s` }}>
                 <div className="card-header">
@@ -982,8 +959,8 @@ export default function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3">
+            <div className="lg:col-span-2">
               {lineChartData ? (
                 <div className="chart-container">
                   <Line data={lineChartData} options={{ responsive: true, maintainAspectRatio: false }} />
@@ -1017,7 +994,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2" style={{ marginBottom: "2rem" }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2" style={{ marginBottom: "1rem" }}>
             <div>
               <h3 className="text-lg font-semibold mb-2">Filter Verifikasi</h3>
               <div className="flex flex-wrap gap-2">
@@ -1076,7 +1053,7 @@ export default function App() {
                       <td>
                         <div>
                           <strong>{event.username ?? event.user_id ?? "unknown"}</strong>
-                          <p className="text-sm text-muted">{event.text ?? "-"}</p>
+                          <p className="text-sm text-muted">{event.text ? (event.text.length > 30 ? `${event.text.slice(0, 30)}...` : event.text) : "-"}</p>
                         </div>
                       </td>
                       <td>{formatPercent(event.prob_hate)}</td>
@@ -1087,13 +1064,13 @@ export default function App() {
                       <td>
                         {event.manual_verified ? (
                           <span className={clsx("badge", event.manual_label === "hate" ? "badge-danger" : "badge-success")}>
-                            {event.manual_label === "hate" ? "Hate Speech" : "Non-hate"}
+                            {event.manual_label === "hate" ? "Hate" : "Non-hate"}
                           </span>
                         ) : (
                           <span className="badge badge-secondary">Belum</span>
                         )}
                       </td>
-                      <td>{dayjs(event.created_at).format("DD MMM YYYY HH:mm:ss")}</td>
+                      <td>{dayjs(event.created_at).format("DD MMM HH:mm")}</td>
                     </tr>
                   );
                 })}
@@ -1101,14 +1078,14 @@ export default function App() {
             </table>
           </div>
 
-          <div className="flex justify-between items-center mt-4">
-            <button className="btn btn-ghost" disabled={!hasPrevPage || historyLoading} onClick={handleHistoryPrev}>
+          <div className="flex justify-between items-center mt-4 flex-wrap gap-2">
+            <button className="btn btn-ghost btn-sm" disabled={!hasPrevPage || historyLoading} onClick={handleHistoryPrev}>
               Sebelumnya
             </button>
-            <span className="text-muted">
+            <span className="text-muted text-sm">
               Halaman {Math.min(historyPage + 1, historyPageCount)} dari {historyPageCount}
             </span>
-            <button className="btn btn-ghost" disabled={!hasNextPage || historyLoading} onClick={handleHistoryNext}>
+            <button className="btn btn-ghost btn-sm" disabled={!hasNextPage || historyLoading} onClick={handleHistoryNext}>
               Berikutnya
             </button>
           </div>
@@ -1122,14 +1099,14 @@ export default function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2">
             <div className="card">
               <div className="card-header">
                 <h3 className="card-title">Tambah Admin</h3>
               </div>
-              <form onSubmit={handleAddAdmin} className="form-row">
+              <form onSubmit={handleAddAdmin} className="space-y-3">
                 <input name="admin_id" placeholder="User ID" className="form-input" />
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" className="btn btn-primary w-full">
                   Tambah
                 </button>
               </form>
@@ -1138,13 +1115,13 @@ export default function App() {
                 <h4 className="font-semibold mb-2">Daftar Admin</h4>
                 <div className="space-y-2">
                   {admins.length === 0 && (
-                    <p className="text-muted">Belum ada admin tambahan.</p>
+                    <p className="text-muted text-sm">Belum ada admin tambahan.</p>
                   )}
                   {admins.map((admin) => (
                     <div key={admin.id} className="flex justify-between items-center p-2 bg-glass rounded-lg">
                       <div>
-                        <strong>{admin.user_id}</strong>
-                        <p className="text-sm text-muted">{dayjs(admin.added_at).fromNow()}</p>
+                        <strong className="text-sm">{admin.user_id}</strong>
+                        <p className="text-xs text-muted">{dayjs(admin.added_at).fromNow()}</p>
                       </div>
                       <button className="btn btn-sm btn-danger" onClick={() => handleRemoveAdmin(admin.user_id)}>
                         Hapus
@@ -1165,6 +1142,7 @@ export default function App() {
                   placeholder="Masukkan pesan"
                   value={testInput}
                   onChange={(event) => setTestInput(event.target.value)}
+                  rows={3}
                 />
                 <button type="submit" className="btn btn-primary w-full mt-2" disabled={pending}>
                   {pending ? <span className="loading"></span> : "Jalankan"}
@@ -1187,7 +1165,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2">
             <ModerationForm title="Pengguna dimute" status="muted" data={muted} onSubmit={handleAddMemberStatus} onRelease={handleRemoveMember} />
             <ModerationForm title="Pengguna diblokir" status="banned" data={banned} onSubmit={handleAddMemberStatus} onRelease={handleRemoveMember} />
           </div>
@@ -1246,15 +1224,15 @@ function ModerationForm({ title, status, data, onSubmit, onRelease }: Moderation
                   </td>
                 </tr>
               )}
-              {data.map((item) => (
+              {data.slice(0, 3).map((item) => (
                 <tr key={item.id}>
                   <td>
-                    <strong>{item.username ?? item.user_id}</strong>
-                    <p className="text-sm text-muted">{item.user_id}</p>
+                    <strong className="text-sm">{item.username ?? item.user_id}</strong>
+                    <p className="text-xs text-muted">{item.user_id}</p>
                   </td>
-                  <td>{item.reason ?? "otomatis"}</td>
-                  <td>{dayjs(item.created_at).format("DD MMM HH:mm")}</td>
-                  <td>{item.expires_at ? dayjs(item.expires_at).format("DD MMM HH:mm") : status === "muted" ? "Sampai dibuka" : "Permanent"}</td>
+                  <td className="text-sm">{item.reason ?? "otomatis"}</td>
+                  <td className="text-sm">{dayjs(item.created_at).format("DD MMM HH:mm")}</td>
+                  <td className="text-sm">{item.expires_at ? dayjs(item.expires_at).format("DD MMM HH:mm") : status === "muted" ? "Sampai dibuka" : "Permanent"}</td>
                   <td>
                     <button className="btn btn-sm btn-danger" onClick={() => onRelease(item.user_id, status)}>
                       Lepas
