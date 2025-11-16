@@ -55,9 +55,9 @@ const REVIEW_PAGE = 5;
 const THRESHOLD_MIN = 0.2;
 const THRESHOLD_MAX = 0.95;
 const MODE_PRESETS: Record<SettingsResponse["mode"], number> = {
-  precision: 0.75,
-  balanced: 0.62,
-  recall: 0.5,
+  precision: 0.561,
+  balanced: 0.561,
+  recall: 0.384,
 };
 
 const ACTION_META: Record<string, { label: string; tone: "success" | "warning" | "danger" | "muted" }> = {

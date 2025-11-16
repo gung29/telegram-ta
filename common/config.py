@@ -33,9 +33,9 @@ class Settings(BaseSettings):
 
     database_url: str = Field("sqlite:///./data/db.sqlite3", alias="DATABASE_URL")
     retention_days: int = Field(30, alias="RETENTION_DAYS")
-    default_threshold: float = Field(0.62, alias="DEFAULT_THRESHOLD")
+    default_threshold: float = Field(0.561, alias="DEFAULT_THRESHOLD")
 
-    model_path: str = Field("./data/model/model.onnx", alias="MODEL_PATH")
+    model_path: str = Field("./data/model", alias="MODEL_PATH")
     tokenizer_path: str = Field("./data/model/tokenizer.json", alias="TOKENIZER_PATH")
 
     mini_app_base_url: str = Field("https://mini.gungzy.xyz", alias="MINI_APP_BASE_URL")
