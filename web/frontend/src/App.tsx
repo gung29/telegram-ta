@@ -118,7 +118,7 @@ export default function App() {
   const [pending, setPending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [thresholdPreview, setThresholdPreview] = useState<number | null>(null);
+  const [thresholdState, setThresholdState] = useState<Record<number, { value: number; mode: ModeSelection }>>({});
   const [retentionDraft, setRetentionDraft] = useState<number | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(0);
@@ -131,7 +131,14 @@ export default function App() {
   const [userActions, setUserActions] = useState<UserActionSummary[]>([]);
   const [userActionsLoading, setUserActionsLoading] = useState(false);
   const [resettingAction, setResettingAction] = useState<{ userId: number; action: "warned" | "muted" } | null>(null);
-  const [modeSelection, setModeSelection] = useState<ModeSelection>("balanced");
+  const currentThresholdState = chatId ? thresholdState[chatId] : undefined;
+  const derivedModeFromSettings = useMemo(() => {
+    if (!settings) return "balanced";
+    const preset = MODE_PRESETS[settings.mode];
+    return Math.abs(settings.threshold - preset) > 0.005 ? "custom" : settings.mode;
+  }, [settings]);
+  const modeSelection: ModeSelection = currentThresholdState?.mode ?? derivedModeFromSettings;
+  const thresholdPreview = currentThresholdState?.value ?? settings?.threshold ?? 0.62;
   const [manualFilter, setManualFilter] = useState<"all" | "pending" | "verified" | "hate" | "non-hate">("all");
   const [detectionFilter, setDetectionFilter] = useState<"all" | "hate" | "non-hate">("all");
   const manualFilterOptions: { value: "all" | "pending" | "verified" | "hate" | "non-hate"; label: string }[] = [
@@ -379,16 +386,16 @@ export default function App() {
   }, [chatId, statsWindow, refresh, autoRefresh]);
 
   useEffect(() => {
-    if (!settings) return;
-    setThresholdPreview(settings.threshold);
+    if (!settings || !chatId) return;
     setRetentionDraft(settings.retention_days);
     const preset = MODE_PRESETS[settings.mode];
-    if (Math.abs(settings.threshold - preset) > 0.005) {
-      setModeSelection("custom");
-    } else {
-      setModeSelection(settings.mode);
-    }
-  }, [settings]);
+    const mode = Math.abs(settings.threshold - preset) > 0.005 ? "custom" : settings.mode;
+    setThresholdState((prev) => {
+      const next = { ...prev };
+      next[chatId] = { value: settings.threshold, mode };
+      return next;
+    });
+  }, [settings, chatId]);
 
   const handleSettingsUpdate = async (payload: Partial<SettingsResponse>) => {
     if (!chatId) return;
@@ -396,7 +403,6 @@ export default function App() {
     try {
       const updated = await updateSettings(chatId, payload);
       setSettings(updated);
-      setThresholdPreview(updated.threshold);
       setRetentionDraft(updated.retention_days);
       notify("Pengaturan tersimpan");
     } catch (error) {
@@ -407,9 +413,13 @@ export default function App() {
   };
 
   const commitThreshold = async () => {
-    if (!settings || thresholdPreview === null) return;
-    if (Math.abs(thresholdPreview - settings.threshold) < 0.001) return;
-    await handleSettingsUpdate({ threshold: Number(thresholdPreview.toFixed(2)) });
+    if (!settings || !chatId) return;
+    const state = thresholdState[chatId];
+    if (!state) return;
+    if (Math.abs(state.value - settings.threshold) < 0.001) return;
+    const value = Number(state.value.toFixed(2));
+    await handleSettingsUpdate({ threshold: value });
+    setThresholdState((prev) => ({ ...prev, [chatId]: { ...state, value } }));
   };
 
   const commitRetention = async () => {
@@ -798,11 +808,12 @@ export default function App() {
   };
 
   const handleModeSelect = async (mode: SettingsResponse["mode"]) => {
+    if (!chatId) return;
     const preset = MODE_PRESETS[mode];
     const clamped = Math.min(THRESHOLD_MAX, Math.max(THRESHOLD_MIN, preset ?? (settings?.threshold ?? 0.62)));
-    setThresholdPreview(clamped);
-    setModeSelection(mode);
-    await handleSettingsUpdate({ mode, threshold: Number(clamped.toFixed(2)) });
+    setThresholdState((prev) => ({ ...prev, [chatId]: { value: clamped, mode } }));
+    const value = Number(clamped.toFixed(2));
+    await handleSettingsUpdate({ mode, threshold: value });
   };
 
   const navigation: { key: SectionKey; label: string }[] = [
@@ -959,17 +970,21 @@ export default function App() {
                 <div className="control-row threshold">
                   <div>
                     <span>Ambang moderasi</span>
-                    <strong>{formatPercent(thresholdPreview ?? settings?.threshold ?? 0)}</strong>
+                    <strong>{formatPercent(thresholdPreview)}</strong>
                   </div>
                   <input
                     type="range"
                     min={THRESHOLD_MIN}
                     max={THRESHOLD_MAX}
                     step={0.01}
-                    value={thresholdPreview ?? settings?.threshold ?? 0.62}
+                    value={thresholdPreview}
                     onChange={(event) => {
-                      setModeSelection("custom");
-                      setThresholdPreview(Number(event.target.value));
+                      if (!chatId) return;
+                      const value = Number(event.target.value);
+                      setThresholdState((prev) => ({
+                        ...prev,
+                        [chatId]: { value, mode: "custom" },
+                      }));
                     }}
                     onMouseUp={commitThreshold}
                     onPointerUp={commitThreshold}
