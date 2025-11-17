@@ -1288,7 +1288,6 @@ export default function App() {
               Berikutnya
             </button>
           </div>
-        </div>
         <div className="user-actions-panel">
           <div className="panel-header">
             <div>
@@ -1531,9 +1530,9 @@ function ModerationForm({ title, status, data, onSubmit, onRelease }: Moderation
               </tr>
             ))}
           </tbody>
-          </div>
         </table>
       </div>
+    </div>
   );
 }
 
