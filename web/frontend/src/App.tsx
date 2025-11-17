@@ -6,7 +6,6 @@ import {
   createMemberStatus,
   deleteMemberStatus,
   removeAdmin,
-  exportCsv,
   fetchActivity,
   fetchAdmins,
   fetchEvents,
@@ -55,6 +54,8 @@ const REVIEW_PAGE = 5;
 const THRESHOLD_MIN = 0.2;
 const THRESHOLD_MAX = 0.95;
 type ModeSelection = SettingsResponse["mode"] | "custom";
+type ActionFilter = "all" | "warn" | "block" | "allow";
+type TimeFilter = "all" | "24h" | "7d" | "30d";
 
 const MODE_PRESETS: Record<SettingsResponse["mode"], number> = {
   precision: 0.561,
@@ -141,6 +142,9 @@ export default function App() {
   const thresholdPreview = currentThresholdState?.value ?? settings?.threshold ?? 0.62;
   const [manualFilter, setManualFilter] = useState<"all" | "pending" | "verified" | "hate" | "non-hate">("all");
   const [detectionFilter, setDetectionFilter] = useState<"all" | "hate" | "non-hate">("all");
+  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const manualFilterOptions: { value: "all" | "pending" | "verified" | "hate" | "non-hate"; label: string }[] = [
     { value: "all", label: "Semua" },
     { value: "pending", label: "Belum dilabeli" },
@@ -152,6 +156,18 @@ export default function App() {
     { value: "all", label: "Semua deteksi" },
     { value: "hate", label: "Dideteksi hate" },
     { value: "non-hate", label: "Dideteksi non-hate" },
+  ];
+  const actionFilterOptions: { value: ActionFilter; label: string }[] = [
+    { value: "all", label: "Semua tindakan" },
+    { value: "warn", label: "Peringatan / mute" },
+    { value: "block", label: "Ban / blokir" },
+    { value: "allow", label: "Diizinkan" },
+  ];
+  const timeFilterOptions: { value: TimeFilter; label: string }[] = [
+    { value: "all", label: "Semua waktu" },
+    { value: "24h", label: "24 jam" },
+    { value: "7d", label: "7 hari" },
+    { value: "30d", label: "30 hari" },
   ];
   const initialChat = useRef<number | null>(null);
   const overviewRef = useRef<HTMLElement | null>(null);
@@ -599,11 +615,53 @@ export default function App() {
   const handleExport = async () => {
     if (!chatId) return;
     try {
-      const blob = await exportCsv(chatId);
+      if (!filteredHistoryList.length) {
+        notify("Tidak ada data yang cocok dengan filter untuk diekspor");
+        return;
+      }
+      const header = [
+        "id",
+        "chat_id",
+        "user_id",
+        "username",
+        "prob_hate",
+        "prob_nonhate",
+        "action",
+        "reason",
+        "created_at",
+        "text",
+        "manual_label",
+        "manual_verified",
+      ];
+      const escape = (value: unknown) => {
+        if (value === null || value === undefined) return "";
+        let str = String(value);
+        str = str.replace(/\r?\n/g, " ");
+        if (/[",\n]/.test(str)) {
+          str = `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+      const rows = filteredHistoryList.map((event) => [
+        event.id,
+        event.chat_id,
+        event.user_id ?? "",
+        event.username ?? "",
+        event.prob_hate,
+        event.prob_nonhate,
+        event.action,
+        event.reason ?? "",
+        event.created_at,
+        event.text ?? "",
+        event.manual_label ?? "",
+        event.manual_verified ? "true" : "false",
+      ]);
+      const csv = [header.map(escape).join(","), ...rows.map((row) => row.map(escape).join(","))].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `hate_guard_${chatId}.csv`;
+      a.download = `hate_guard_${chatId}_history.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -711,16 +769,67 @@ export default function App() {
     [detectionFilter],
   );
 
+  const filterAction = useCallback(
+    (event: EventEntry) => {
+      switch (actionFilter) {
+        case "warn":
+          return event.action === "warned" || event.action === "muted";
+        case "block":
+          return event.action === "banned" || event.action === "blocked";
+        case "allow":
+          return event.action === "allowed" || event.action === "bypassed_admin";
+        default:
+          return true;
+      }
+    },
+    [actionFilter],
+  );
+
+  const filterTime = useCallback(
+    (event: EventEntry) => {
+      if (timeFilter === "all") return true;
+      const created = dayjs(event.created_at);
+      if (!created.isValid()) return true;
+      const now = dayjs();
+      if (timeFilter === "24h") {
+        return created.isAfter(now.subtract(24, "hour"));
+      }
+      if (timeFilter === "7d") {
+        return created.isAfter(now.subtract(7, "day"));
+      }
+      if (timeFilter === "30d") {
+        return created.isAfter(now.subtract(30, "day"));
+      }
+      return true;
+    },
+    [timeFilter],
+  );
+
+  const filterSearch = useCallback(
+    (event: EventEntry) => {
+      const q = searchTerm.trim().toLowerCase();
+      if (!q) return true;
+      const username = (event.username ?? "").toLowerCase();
+      const text = (event.text ?? "").toLowerCase();
+      const userId = event.user_id ? String(event.user_id) : "";
+      return username.includes(q) || text.includes(q) || userId.includes(q);
+    },
+    [searchTerm],
+  );
+
   const filteredHistoryList = useMemo(
-    () => allEvents.filter((event) => filterManual(event) && filterDetection(event)),
-    [allEvents, filterManual, filterDetection],
+    () =>
+      allEvents.filter(
+        (event) => filterManual(event) && filterDetection(event) && filterAction(event) && filterTime(event) && filterSearch(event),
+      ),
+    [allEvents, filterManual, filterDetection, filterAction, filterTime, filterSearch],
   );
   const filteredReviewList = filteredHistoryList;
 
   useEffect(() => {
     setHistoryPage(0);
     setReviewPage(0);
-  }, [chatId, manualFilter, detectionFilter]);
+  }, [chatId, manualFilter, detectionFilter, actionFilter, timeFilter, searchTerm]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(filteredHistoryList.length / HISTORY_PAGE));
@@ -902,9 +1011,6 @@ export default function App() {
               <div className="status-buttons">
                 <button className="btn ghost" onClick={() => refresh()}>
                   Refresh Data
-                </button>
-                <button className="btn primary" onClick={handleExport}>
-                  Unduh CSV
                 </button>
               </div>
             </div>
@@ -1173,6 +1279,46 @@ export default function App() {
                 ))}
               </div>
             </div>
+            <div>
+              <p className="eyebrow">Jenis tindakan</p>
+              <div className="chip-row">
+                {actionFilterOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={clsx("chip", actionFilter === option.value && "active")}
+                    onClick={() => setActionFilter(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="eyebrow">Rentang waktu</p>
+              <div className="chip-row">
+                {timeFilterOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={clsx("chip", timeFilter === option.value && "active")}
+                    onClick={() => setTimeFilter(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="eyebrow">Cari teks / pengguna</p>
+              <input
+                type="text"
+                className="input"
+                placeholder="Cari username, user ID, atau isi pesan"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
           </div>
           {(chatLogChartData || chatLogActionChartData) && (
             <div className="history-charts">
@@ -1286,6 +1432,9 @@ export default function App() {
             </span>
             <button className="btn ghost" type="button" disabled={!hasNextPage || historyLoading} onClick={handleHistoryNext}>
               Berikutnya
+            </button>
+            <button className="btn primary" type="button" onClick={handleExport} disabled={historyLoading || !filteredHistoryList.length}>
+              Unduh CSV (sesuai filter)
             </button>
           </div>
         <div className="user-actions-panel">
