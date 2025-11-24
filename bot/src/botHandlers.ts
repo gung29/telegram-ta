@@ -311,6 +311,7 @@ const formatModerationMessage = ({
   text,
   warnCount,
   reason,
+  durationMinutes,
 }: {
   username?: string;
   userId: number;
@@ -319,11 +320,16 @@ const formatModerationMessage = ({
   text: string;
   warnCount: number;
   reason: string;
+  durationMinutes?: number;
 }) => {
   const name = username ? `@${username}` : `ID ${userId}`;
   const actionLabel = action === "banned" ? "diblokir" : "dimute";
   const time = formatLocalDateTime();
   const spoiler = `<tg-spoiler>${text.slice(0, 200)}</tg-spoiler>`;
+  const durationLine =
+    action === "muted" && typeof durationMinutes === "number"
+      ? `⏳ Durasi   : ${durationMinutes} menit\n`
+      : "";
   return (
     "🚨 Pesan Telah Dihapus: Hate Speech Terdeteksi!\n" +
     "─────────────────────────────\n" +
@@ -336,6 +342,7 @@ const formatModerationMessage = ({
     "🤖 Pesan ini dicek otomatis oleh HateSpeechBot\n\n" +
     `⚠️ Peringatan ke-${warnCount} untuk user ini hari ini.\n` +
     `📌 Tindakan: ${actionLabel}\n` +
+    durationLine +
     `📝 Alasan  : ${reason}`
   );
 };
@@ -744,6 +751,7 @@ export const registerHandlers = (bot: TelegramBot) => {
         text: originalText,
         warnCount: dailyOffenses,
         reason: moderationReason,
+        durationMinutes: moderationAction === "muted" ? muteDuration : undefined,
       });
 
       await persistEvent({
