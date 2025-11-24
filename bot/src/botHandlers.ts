@@ -17,6 +17,7 @@ import {
   syncGroup,
   upsertMemberModeration,
   fetchUserActions,
+  fetchGroups,
 } from "./apiClient";
 import { TTLCache } from "./cache";
 import { normalizeObfuscatedTerms } from "./textNormalization";
@@ -497,10 +498,15 @@ const formatWarningMessage = ({
 };
 
 export const registerHandlers = (bot: TelegramBot) => {
-  setInterval(() => {
-    trackedChats.forEach((chatId) => {
-      enforceManualStatuses(bot, chatId).catch((err) => logger.error({ err, chatId }, "enforce_error"));
-    });
+  setInterval(async () => {
+    try {
+      const groups = await fetchGroups(); // /admin/groups di core API
+      for (const group of groups) {
+        await enforceManualStatuses(bot, group.chat_id);
+      }
+    } catch (err) {
+      logger.error({ err }, "enforce_error_global");
+    }
   }, 15_000);
 
 type NextModeration =
