@@ -148,23 +148,22 @@ const incrementOffense = (chatId: number, userId: number): number => {
   return next;
 };
 
-const ensureDailyRecord = async (chatId: number, userId: number) => {
+const ensureDailyRecord = (chatId: number, userId: number) => {
   const key = offenseKey(chatId, userId);
   const today = getLocalDayKey();
   let record = dailyOffenseMap.get(key);
-  const remoteCount = await fetchActionCount(chatId, userId, "warned", "day");
-  if (!record || record.day !== today || remoteCount < record.count || remoteCount > record.count) {
-    record = { count: remoteCount, day: today };
+  if (!record || record.day !== today) {
+    record = { count: 0, day: today };
     dailyOffenseMap.set(key, record);
   }
   return record;
 };
 
-const incrementDailyOffense = async (chatId: number, userId: number): Promise<number> => {
-  const record = await ensureDailyRecord(chatId, userId);
+const incrementDailyOffense = (chatId: number, userId: number): Promise<number> => {
+  const record = ensureDailyRecord(chatId, userId);
   record.count += 1;
   dailyOffenseMap.set(offenseKey(chatId, userId), record);
-  return record.count;
+  return Promise.resolve(record.count);
 };
 
 const getMuteCount = async (chatId: number, userId: number): Promise<number> => {
@@ -364,7 +363,7 @@ const formatWarningMessage = ({
     `🕒 Waktu    : ${time}\n` +
     "─────────────────────────────\n" +
     `💬 Pesan diawasi: ${spoiler}\n\n` +
-    `⚠️ Peringatan ke-${warnCount} hari ini (maks 4). Pesan berikutnya akan dimoderasi lebih ketat.`
+    `⚠️ Peringatan ke-${warnCount} hari ini (maks ${WARN_LIMIT_PER_DAY}). Pesan berikutnya akan dimoderasi lebih ketat.`
   );
 };
 
