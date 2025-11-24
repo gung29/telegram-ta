@@ -19,6 +19,15 @@ type Props = { chatId: number };
 
 type PenaltyKind = "muted" | "banned";
 
+export const expireMemberStatus = (chatId, userId, status) =>
+  upsertMemberModeration(chatId, {
+    user_id: userId,
+    status,
+    reason: "Manual release",
+    duration_minutes: 0, // backend → expires_at = now
+  });
+
+
 export const AdminPanel: React.FC<Props> = ({ chatId }) => {
   const [testText, setTestText] = useState('');
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);

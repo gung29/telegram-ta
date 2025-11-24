@@ -30,6 +30,24 @@ const dailyOffenseMap: Map<string, { count: number; day: string }> = new Map();
 const muteCountCache = new TTLCache<number>(30 * 24 * 60 * 60 * 1000);
 const manualStatusCache = new Map<number, Map<number, MemberStatus>>();
 
+const setManualStatus = (chatId: number, userId: number, status: MemberStatus) => {
+  let chatMap = manualStatusCache.get(chatId);
+  if (!chatMap) {
+    chatMap = new Map<number, MemberStatus>();
+    manualStatusCache.set(chatId, chatMap);
+  }
+  chatMap.set(userId, status);
+};
+
+const clearManualStatus = (chatId: number, userId: number) => {
+  const chatMap = manualStatusCache.get(chatId);
+  if (!chatMap) return;
+  chatMap.delete(userId);
+  if (chatMap.size === 0) {
+    manualStatusCache.delete(chatId);
+  }
+};
+
 const isInvalidUserError = (error: unknown) =>
   error instanceof Error && /invalid user identifier/i.test(error.message);
 
@@ -211,6 +229,7 @@ const releaseManualStatus = async (bot: TelegramBot, chatId: number, userId: num
     } else if (status === "banned") {
       await bot.unbanChatMember(chatId, userId, { only_if_banned: true });
     }
+    clearManualStatus(chatId, userId);
   } catch (error) {
     logger.warn({ err: error, chatId, userId, status }, "Failed to release manual status");
   }
@@ -264,6 +283,8 @@ const applyMute = async (
     duration_minutes: safeDuration,
     reason,
   });
+
+  setManualStatus(chatId, userId, "muted");
 };
 
 const applyBan = async (
@@ -280,6 +301,8 @@ const applyBan = async (
     status: "banned",
     reason,
   });
+
+  setManualStatus(chatId, userId, "banned");
 };
 
 
@@ -290,11 +313,13 @@ const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: Me
     until_date: 0,
   } as any);
   await removeMemberModeration(chatId, member.user_id, member.status);
+  clearManualStatus(chatId, member.user_id);
 };
 
 const releaseBanIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration) => {
   await bot.unbanChatMember(chatId, member.user_id, { only_if_banned: true });
   await removeMemberModeration(chatId, member.user_id, member.status);
+  clearManualStatus(chatId, member.user_id);
 };
 
 const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
