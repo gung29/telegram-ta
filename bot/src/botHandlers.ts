@@ -203,7 +203,11 @@ const ensureGroupSync = async (bot: TelegramBot, chat: TelegramBot.Chat) => {
 const releaseManualStatus = async (bot: TelegramBot, chatId: number, userId: number, status: MemberStatus) => {
   try {
     if (status === "muted") {
-      await bot.restrictChatMember(chatId, userId, { permissions: defaultPermissions });
+      await bot.restrictChatMember(chatId, userId, {
+        permissions: defaultPermissions,
+        // until_date = 0 menghapus batas waktu lama dan benar-benar meng-unmute
+        until_date: 0,
+      } as any);
     } else if (status === "banned") {
       await bot.unbanChatMember(chatId, userId, { only_if_banned: true });
     }
@@ -259,7 +263,10 @@ const applyBan = async (
 
 
 const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration) => {
-  await bot.restrictChatMember(chatId, member.user_id, { permissions: defaultPermissions });
+  await bot.restrictChatMember(chatId, member.user_id, {
+    permissions: defaultPermissions,
+    until_date: 0,
+  } as any);
   await removeMemberModeration(chatId, member.user_id, member.status);
 };
 
