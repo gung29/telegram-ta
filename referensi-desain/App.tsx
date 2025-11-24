@@ -274,7 +274,7 @@ function App() {
       case View.VERIFY:
         return chatId ? <Verification chatId={chatId} /> : <div className="p-4 text-slate-400">Pilih grup terlebih dahulu.</div>;
       case View.ADMIN:
-        return <AdminPanel />;
+        return chatId ? <AdminPanel chatId={chatId} /> : <div className="p-4 text-slate-400">Pilih grup terlebih dahulu.</div>;
       default:
         return <Dashboard />;
     }
