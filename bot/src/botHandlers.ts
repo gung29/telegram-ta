@@ -249,6 +249,30 @@ const releaseManualStatus = async (bot: TelegramBot, chatId: number, userId: num
   }
 };
 
+const manualUnmute = async (bot: TelegramBot, chatId: number, userId: number) => {
+  await bot.restrictChatMember(chatId, userId, {
+    permissions: defaultPermissions,
+    use_independent_chat_permissions: true,
+    until_date: 0,
+  } as any);
+  try {
+    await removeMemberModeration(chatId, userId, "muted");
+  } catch (error) {
+    logger.warn({ err: error, chatId, userId }, "Failed to remove backend mute record");
+  }
+  clearManualStatus(chatId, userId);
+};
+
+const manualUnban = async (bot: TelegramBot, chatId: number, userId: number) => {
+  await bot.unbanChatMember(chatId, userId, { only_if_banned: true });
+  try {
+    await removeMemberModeration(chatId, userId, "banned");
+  } catch (error) {
+    logger.warn({ err: error, chatId, userId }, "Failed to remove backend ban record");
+  }
+  clearManualStatus(chatId, userId);
+};
+
 const applyMute = async (
   bot: TelegramBot,
   chatId: number,
@@ -759,6 +783,28 @@ const getNextModerationStep = (priorMuteCount: number): NextModeration => {
     }
   });
 
+  bot.onText(/\/unmute(?:@\w+)?(?:\s+(\d+))?/, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {
+    const chatId = msg.chat?.id;
+    if (!chatId) return;
+    if (!(await requireAdmin(bot, chatId, msg.from?.id))) {
+      await notifyAdminOnly(bot, msg);
+      return;
+    }
+    const repliedUser = msg.reply_to_message?.from;
+    const userId = match?.[1] ? Number(match[1]) : repliedUser?.id;
+    if (!userId) {
+      return bot.sendMessage(chatId, "Gunakan format: /unmute <user_id> atau balas pesan pengguna yang ingin di-unmute.");
+    }
+    try {
+      await manualUnmute(bot, chatId, userId);
+      const name = repliedUser?.username ? `@${repliedUser.username}` : `ID ${userId}`;
+      await bot.sendMessage(chatId, `User ${name} sudah di-unmute.`);
+    } catch (error) {
+      logger.error({ err: error }, "Manual unmute failed");
+      await bot.sendMessage(chatId, "Gagal melakukan unmute.");
+    }
+  });
+
   bot.onText(/\/ban(?:@\w+)?\s+(\d+)/, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {
     const chatId = msg.chat?.id;
     if (!chatId) return;
@@ -774,6 +820,28 @@ const getNextModerationStep = (priorMuteCount: number): NextModeration => {
     } catch (error) {
       logger.error({ err: error }, "Manual ban failed");
       await bot.sendMessage(chatId, "Gagal melakukan ban.");
+    }
+  });
+
+  bot.onText(/\/unban(?:@\w+)?(?:\s+(\d+))?/, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {
+    const chatId = msg.chat?.id;
+    if (!chatId) return;
+    if (!(await requireAdmin(bot, chatId, msg.from?.id))) {
+      await notifyAdminOnly(bot, msg);
+      return;
+    }
+    const repliedUser = msg.reply_to_message?.from;
+    const userId = match?.[1] ? Number(match[1]) : repliedUser?.id;
+    if (!userId) {
+      return bot.sendMessage(chatId, "Gunakan format: /unban <user_id> atau balas pesan pengguna yang ingin di-unban.");
+    }
+    try {
+      await manualUnban(bot, chatId, userId);
+      const name = repliedUser?.username ? `@${repliedUser.username}` : `ID ${userId}`;
+      await bot.sendMessage(chatId, `User ${name} sudah di-unban.`);
+    } catch (error) {
+      logger.error({ err: error }, "Manual unban failed");
+      await bot.sendMessage(chatId, "Gagal melakukan unban.");
     }
   });
 
