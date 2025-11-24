@@ -133,22 +133,24 @@ export const Dashboard: React.FC<Props> = ({
                           {g.status ? 'Active' : 'Paused'}
                       </span>
                        <button
-                         type="button"
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           onToggleGroupStatus(g.id, g.status);
-                         }}
-                         className={`w-10 h-5 rounded-full relative transition-colors ${
-                           g.status ? 'bg-purple-500' : 'bg-slate-700'
-                         }`}
-                       >
-                         <div className="relative w-10 h-5 rounded-full bg-purple-500">
-                          <span
-                            className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform duration-200
-                              ${g.status ? 'translate-x-[1.375rem]' : 'translate-x-0'}`}
-                          />
-                        </div>
-                       </button>
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleGroupStatus(g.id, g.status);
+                        }}
+                        className={`
+                          relative w-10 h-5 rounded-full transition-colors duration-200
+                          ${g.status ? 'bg-purple-500' : 'bg-slate-700'}
+                        `}
+                      >
+                        <span
+                          className={`
+                            absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm
+                            transition-transform duration-200
+                            ${g.status ? 'translate-x-[1.375rem]' : 'translate-x-0'}
+                          `}
+                        />
+                      </button>
                   </div>
                 </button>
             ))}
