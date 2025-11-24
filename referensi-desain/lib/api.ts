@@ -8,22 +8,8 @@ export class HttpError extends Error {
   }
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
-
-const resolveUrl = (path: string) => {
-  try {
-    // absolute URL stays as-is
-    return new URL(path).toString();
-  } catch {
-    // relative path -> attach to configured base or current origin
-    const base = API_BASE || (typeof window !== "undefined" ? window.location.origin : "");
-    return new URL(path, base).toString();
-  }
-};
-
 const baseFetch = async <T>(input: RequestInfo, init?: RequestInit): Promise<T> => {
-  const url = typeof input === "string" ? resolveUrl(input) : input;
-  const response = await fetch(url, {
+  const response = await fetch(input, {
     ...init,
     headers: {
       ...withHeaders(),
