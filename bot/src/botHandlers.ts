@@ -223,23 +223,45 @@ const applyMute = async (
   username: string | undefined,
   durationMinutes = 10,
   reason = "Automatic moderation",
-  nowSeconds?: number,
+  nowSeconds?: number, // opsional: kalau mau pakai msg.date
 ) => {
-  const base = typeof nowSeconds === "number" ? nowSeconds : Math.floor(Date.now() / 1000);
-  const until = base + durationMinutes * 60;
+  // pastikan durasi minimal 1 menit dan integer
+  const safeDuration = Math.max(1, Math.round(durationMinutes));
 
-  const options = {
-    permissions: mutePermissions,
-    until_date: until,
-  } as any;
+  // basis waktu: pakai nowSeconds (mis. msg.date) kalau ada, kalau tidak Date.now()
+  const baseUtcSeconds =
+    typeof nowSeconds === "number" ? nowSeconds : Math.floor(Date.now() / 1000);
 
-  await bot.restrictChatMember(chatId, userId, options);
+  const untilUtcSeconds = baseUtcSeconds + safeDuration * 60;
+
+  // (opsional) log buat cek di console
+  logger.info(
+    {
+      chatId,
+      userId,
+      reason,
+      durationMinutes: safeDuration,
+      baseUtcSeconds,
+      untilUtcSeconds,
+      untilIso: new Date(untilUtcSeconds * 1000).toISOString(),
+    },
+    "applyMute_computed_until",
+  );
+
+  await bot.restrictChatMember(
+    chatId,
+    userId,
+    {
+      permissions: mutePermissions,
+      until_date: untilUtcSeconds,
+    } as any,
+  );
 
   await upsertMemberModeration(chatId, {
     user_id: userId,
     username,
     status: "muted",
-    duration_minutes: durationMinutes,
+    duration_minutes: safeDuration,
     reason,
   });
 };
@@ -282,13 +304,31 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
     const prevStatuses = manualStatusCache.get(chatId) ?? new Map<number, MemberStatus>();
     const nextStatuses = new Map<number, MemberStatus>();
     for (const member of members) {
-      nextStatuses.set(member.user_id, member.status);
       try {
         if (member.status === "muted") {
+          // jika sudah lewat masa berlaku di backend -> lepaskan mute
           if (member.expires_at && new Date(member.expires_at).getTime() <= now) {
             await releaseMuteIfExpired(bot, chatId, member);
             continue;
           }
+
+          // jika admin Telegram sudah meng-unmute secara manual,
+          // status user di chat biasanya bukan lagi "restricted"
+          try {
+            const chatMember = await bot.getChatMember(chatId, member.user_id);
+            if (chatMember && chatMember.status !== "restricted") {
+              // hormati unmute manual: hapus record backend, jangan remute
+              await removeMemberModeration(chatId, member.user_id, member.status);
+              continue;
+            }
+          } catch (error) {
+            if (isInvalidUserError(error)) {
+              logger.warn({ chatId, memberId: member.user_id }, "Skip enforcement for user not found (getChatMember)");
+              continue;
+            }
+            throw error;
+          }
+
           const until = member.expires_at ? Math.floor(new Date(member.expires_at).getTime() / 1000) : undefined;
           await bot.restrictChatMember(chatId, member.user_id, { permissions: mutePermissions, until_date: until });
         } else if (member.status === "banned") {
@@ -296,6 +336,23 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
             await releaseBanIfExpired(bot, chatId, member);
             continue;
           }
+
+          // kalau admin sudah unban manual (user kembali jadi member/administrator),
+          // jangan paksa ban ulang
+          try {
+            const chatMember = await bot.getChatMember(chatId, member.user_id);
+            if (chatMember && chatMember.status !== "kicked") {
+              await removeMemberModeration(chatId, member.user_id, member.status);
+              continue;
+            }
+          } catch (error) {
+            if (isInvalidUserError(error)) {
+              logger.warn({ chatId, memberId: member.user_id }, "Skip enforcement for user not found (getChatMember ban)");
+              continue;
+            }
+            throw error;
+          }
+
           await bot.banChatMember(chatId, member.user_id);
         }
       } catch (error) {
@@ -305,6 +362,8 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
         }
         throw error;
       }
+      // hanya simpan status untuk member yang memang masih harus dimoderasi
+      nextStatuses.set(member.user_id, member.status);
     }
     const releases: Array<[number, MemberStatus]> = [];
     prevStatuses.forEach((status, userId) => {
@@ -795,7 +854,7 @@ const getNextModerationStep = (priorMuteCount: number): NextModeration => {
           msg.chat.id,
           msg.from.id,
           msg.from.username,
-          muteDuration,
+          muteDuration ?? 10,
           moderationReason,
           msg.date, // 👈 pakai timestamp dari Telegram
         );
