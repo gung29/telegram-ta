@@ -9,6 +9,7 @@ import {
   PredictionResponse,
   SettingsResponse,
   StatsResponse,
+  UserActionSummary,
 } from "./types";
 
 const client = axios.create({
@@ -89,4 +90,9 @@ export const removeMemberModeration = async (chatId: number, userId: number, sta
 export const fetchActionCount = async (chatId: number, userId: number, action: string, period: "day" | "all" = "day") => {
   const { data } = await client.get<{ count: number }>(`/admin/action_count/${chatId}/${userId}`, { params: { action, period } });
   return data.count;
+};
+
+export const fetchUserActions = async (chatId: number): Promise<UserActionSummary[]> => {
+  const { data } = await client.get<UserActionSummary[]>(`/admin/user_actions/${chatId}`);
+  return data;
 };

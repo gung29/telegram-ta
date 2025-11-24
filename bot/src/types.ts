@@ -68,3 +68,12 @@ export interface MemberModeration {
   expires_at?: string;
   created_at: string;
 }
+
+export interface UserActionSummary {
+  user_id: number;
+  username?: string;
+  warnings_today: number;
+  mutes_total: number;
+  last_warning?: string | null;
+  last_mute?: string | null;
+}

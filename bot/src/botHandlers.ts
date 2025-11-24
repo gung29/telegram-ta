@@ -16,10 +16,11 @@ import {
   sendSettings,
   syncGroup,
   upsertMemberModeration,
+  fetchUserActions,
 } from "./apiClient";
 import { TTLCache } from "./cache";
 import { normalizeObfuscatedTerms } from "./textNormalization";
-import { EventPayload, MemberModeration, MemberStatus, SettingsResponse } from "./types";
+import { EventPayload, MemberModeration, MemberStatus, SettingsResponse, UserActionSummary } from "./types";
 
 const settingsCache = new TTLCache<SettingsResponse>(5_000);
 const backendAdminCache = new TTLCache<number[]>(120_000);
@@ -644,12 +645,20 @@ export const registerHandlers = (bot: TelegramBot) => {
       }
 
       const rapidOffenses = incrementOffense(msg.chat.id, msg.from.id);
-      // gunakan kombinasi cache lokal + backend agar konsisten
-      const record = ensureDailyRecord(msg.chat.id, msg.from.id);
-      const backendWarns = await fetchActionCount(msg.chat.id, msg.from.id, "warned", "day");
-      const dailyOffenses = Math.max(record.count, backendWarns) + 1; // hitung peringatan ke-n untuk pesan ini
-      // sinkronkan cache lokal dengan nilai terbaru
-      dailyOffenseMap.set(offenseKey(msg.chat.id, msg.from.id), { ...record, count: dailyOffenses });
+
+      // gunakan summary backend agar konsisten dengan dashboard
+      let dailyOffenses = 1;
+      try {
+        const summaries = await fetchUserActions(msg.chat.id);
+        const entry: UserActionSummary | undefined = summaries.find((u) => u.user_id === msg.from!.id);
+        const warningsToday = entry?.warnings_today ?? 0;
+        dailyOffenses = warningsToday + 1;
+      } catch (err) {
+        logger.warn({ err, chatId: msg.chat.id, userId: msg.from?.id }, "Failed to fetch user_actions, fallback to local counter");
+        const record = ensureDailyRecord(msg.chat.id, msg.from!.id);
+        dailyOffenses = record.count + 1;
+        dailyOffenseMap.set(offenseKey(msg.chat.id, msg.from!.id), { ...record, count: dailyOffenses });
+      }
       const severity = prediction.prob_hate - threshold;
 
       // Warn sampai WARN_LIMIT_PER_DAY kali, setelah itu moderasi (mute/ban)
