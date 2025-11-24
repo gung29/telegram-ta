@@ -15,7 +15,9 @@ from fastapi.staticfiles import StaticFiles
 
 from common.config import settings as app_settings
 
-DIST_DIR = Path(__file__).resolve().parent / "referensi-desain" / "dist"
+BASE_DIR = Path(__file__).resolve().parent
+# dist hasil build ada di folder referensi-desain di akar repo
+DIST_DIR = BASE_DIR.parent / "referensi-desain" / "dist"
 INDEX_FILE = DIST_DIR / "index.html"
 
 logger = logging.getLogger("hate-guard-web")
