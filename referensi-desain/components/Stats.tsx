@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import dayjs from "dayjs";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts';
 import { fetchStats, fetchActivity, StatsResponse, ActivityResponse, HttpError } from "../lib/api";
 
 type Props = { chatId: number };
@@ -36,13 +37,16 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
 
   const chartData = useMemo(() => {
     if (!activity) return [];
-    return activity.points.map((p, idx) => ({
-      name: `${idx + 1}`,
-      total: p.deleted,
-      warn: p.warned,
-      block: p.blocked,
-    }));
-  }, [activity]);
+    return activity.points.map((p) => {
+      const label = dayjs(p.date).isValid() ? dayjs(p.date).format(windowKey === "24h" ? "DD MMM HH:mm" : "DD MMM") : "";
+      return {
+        name: label,
+        total: p.deleted,
+        warn: p.warned,
+        block: p.blocked,
+      };
+    });
+  }, [activity, windowKey]);
 
   const pieData = useMemo(() => {
     if (!stats) return [];
@@ -53,6 +57,24 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
     ].filter((d) => d.value > 0);
     return items.length ? items : [{ name: "No data", value: 1, color: "#475569" }];
   }, [stats]);
+
+  const actionDistribution = useMemo(() => {
+    if (!stats) return [];
+    return [
+      { name: "Deleted", value: stats.deleted },
+      { name: "Warned", value: stats.warned },
+      { name: "Blocked", value: stats.blocked },
+    ];
+  }, [stats]);
+
+  const totals = useMemo(() => {
+    if (!stats) return { total: 0, avgPerDay: 0, peak: 0 };
+    const total = stats.total_events;
+    const days = windowKey === "24h" ? 1 : windowKey === "7d" ? 7 : 30;
+    const avgPerDay = days ? Math.round(total / days) : total;
+    const peak = chartData.length ? Math.max(...chartData.map((d) => d.total ?? 0)) : 0;
+    return { total, avgPerDay, peak };
+  }, [stats, chartData, windowKey]);
 
   const topOffenders = useMemo(() => {
     const list = stats?.top_offenders ?? [];
@@ -92,6 +114,20 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
                 <span className="flex items-center text-blue-400"><span className="w-2 h-2 rounded-full bg-blue-400 mr-1"></span> Total</span>
                 <span className="flex items-center text-orange-400"><span className="w-2 h-2 rounded-full bg-orange-400 mr-1"></span> Warned</span>
                 <span className="flex items-center text-red-400"><span className="w-2 h-2 rounded-full bg-red-400 mr-1"></span> Blocked</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs text-slate-300 mb-3">
+              <div className="p-2 bg-slate-800/60 rounded-lg border border-slate-700">
+                <p className="text-slate-400">Total</p>
+                <p className="text-white text-lg font-bold">{totals.total}</p>
+              </div>
+              <div className="p-2 bg-slate-800/60 rounded-lg border border-slate-700">
+                <p className="text-slate-400">Avg/day</p>
+                <p className="text-white text-lg font-bold">{totals.avgPerDay}</p>
+              </div>
+              <div className="p-2 bg-slate-800/60 rounded-lg border border-slate-700">
+                <p className="text-slate-400">Peak</p>
+                <p className="text-white text-lg font-bold">{totals.peak}</p>
+              </div>
             </div>
             <div className="h-48 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -147,17 +183,39 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
                             paddingAngle={5}
                             dataKey="value"
                             stroke="none"
-                        >
+                            >
                             {pieData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                         </Pie>
+                        <Tooltip
+                          formatter={(value: number, name: string) => [`${value}`, name]}
+                          contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '10px' }}
+                        />
                     </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                    <span className="text-xs font-bold text-slate-500">Total</span> 
                 </div>
             </div>
+        </div>
+
+        <div className="glass-panel p-4 rounded-3xl border border-slate-700/50">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-white font-bold">Action Distribution</h3>
+            {loading && <span className="text-xs text-slate-400">Loading…</span>}
+          </div>
+          <div className="h-40">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={actionDistribution}>
+                <XAxis dataKey="name" stroke="#475569" fontSize={11} axisLine={false} tickLine={false} />
+                <YAxis stroke="#475569" fontSize={11} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: 10 }} />
+                <Legend />
+                <Bar dataKey="value" fill="#60a5fa" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         <div>
