@@ -326,10 +326,9 @@ const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: Me
   logger.info({ chatId, userId: member.user_id }, "Attempting to UNMUTE user");
 
   try {
-    await bot.restrictChatMember(chatId, userId, {
+    await bot.restrictChatMember(chatId, member.user_id, {
     permissions: {
       can_send_messages: true,
-      can_send_media_messages: true,
       can_send_photos: true,
       can_send_videos: true,
       can_send_audios: true,
