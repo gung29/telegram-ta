@@ -270,7 +270,7 @@ function App() {
       case View.STATS:
         return chatId ? <Stats chatId={chatId} /> : <div className="p-4 text-slate-400">Pilih grup terlebih dahulu.</div>;
       case View.LOGS:
-        return <Logs />;
+        return chatId ? <Logs chatId={chatId} /> : <div className="p-4 text-slate-400">Pilih grup terlebih dahulu.</div>;
       case View.VERIFY:
         return chatId ? <Verification chatId={chatId} /> : <div className="p-4 text-slate-400">Pilih grup terlebih dahulu.</div>;
       case View.ADMIN:

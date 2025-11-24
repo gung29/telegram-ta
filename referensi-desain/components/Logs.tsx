@@ -1,40 +1,130 @@
-import React, { useState } from 'react';
-import { Search, Filter, MoreHorizontal, Download } from 'lucide-react';
-import { ModerationLog } from '../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+import { Search, Filter, MoreHorizontal, Download, Clock } from 'lucide-react';
+import { fetchEvents, EventEntry, HttpError, exportCsv } from '../lib/api';
 
-const mockLogs: ModerationLog[] = [
-    { id: '1', timestamp: '10:45 AM', user: 'User123', userId: 'u1', action: 'Muted', hateScore: 85, content: 'This group is full of idiots and...', status: 'Auto-Muted' },
-    { id: '2', timestamp: '10:42 AM', user: 'BadActor99', userId: 'u2', action: 'Banned', hateScore: 92, content: 'Go back to where you came from...', status: 'Manual Review' },
-    { id: '3', timestamp: '10:30 AM', user: 'Anon55', userId: 'u3', action: 'Warned', hateScore: 65, content: 'Stop posting this garbage or else...', status: 'Active' },
-    { id: '4', timestamp: '09:15 AM', user: 'TrollMaster', userId: 'u4', action: 'Deleted', hateScore: 78, content: 'Scam link: http://fake-crypto...', status: 'Auto-Muted' },
-    { id: '5', timestamp: '08:50 AM', user: 'Newbie01', userId: 'u5', action: 'Flagged', hateScore: 45, content: 'Is this even real?', status: 'Manual Review' },
-    { id: '6', timestamp: 'Yesterday', user: 'SpammerX', userId: 'u6', action: 'Banned', hateScore: 99, content: 'BUY BTC NOW!!! CHEAP!!', status: 'Verified' },
-    { id: '7', timestamp: 'Yesterday', user: 'HateBot', userId: 'u7', action: 'Banned', hateScore: 88, content: '[Profanity Redacted]', status: 'Verified' },
-];
+dayjs.extend(relativeTime);
 
-export const Logs: React.FC = () => {
+type Props = { chatId: number };
+
+type TabFilter = "all" | "verified" | "flagged" | "muted" | "banned";
+type TimeFilter = "all" | "24h" | "7d" | "30d";
+
+export const Logs: React.FC<Props> = ({ chatId }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [tab, setTab] = useState<TabFilter>("all");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [sortNewest, setSortNewest] = useState(true);
+  const [logs, setLogs] = useState<EventEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const notify = (msg: string) => {
+    if (typeof window !== "undefined") alert(msg);
+  };
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchEvents(chatId, 200, 0);
+      setLogs(data);
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, [chatId]);
 
   const getActionColor = (action: string) => {
       switch(action) {
-          case 'Banned': return 'text-red-500 bg-red-500/10 border-red-500/20';
-          case 'Muted': return 'text-purple-500 bg-purple-500/10 border-purple-500/20';
-          case 'Warned': return 'text-orange-500 bg-orange-500/10 border-orange-500/20';
-          default: return 'text-slate-400 bg-slate-800 border-slate-700';
+          case 'banned':
+          case 'blocked':
+            return 'text-red-500 bg-red-500/10 border-red-500/20';
+          case 'muted':
+          case 'warned':
+            return 'text-orange-500 bg-orange-500/10 border-orange-500/20';
+          case 'deleted':
+            return 'text-sky-400 bg-sky-400/10 border-sky-400/20';
+          default:
+            return 'text-slate-400 bg-slate-800 border-slate-700';
       }
   };
 
   const getScoreColor = (score: number) => {
-      if (score >= 90) return 'text-red-500';
-      if (score >= 70) return 'text-orange-500';
+      if (score >= 0.9) return 'text-red-500';
+      if (score >= 0.7) return 'text-orange-500';
       return 'text-green-500';
+  };
+
+  const passTabFilter = (item: EventEntry) => {
+    switch (tab) {
+      case "verified":
+        return item.manual_verified;
+      case "flagged":
+        return !item.manual_verified;
+      case "muted":
+        return item.action === "muted" || item.action === "warned";
+      case "banned":
+        return item.action === "banned" || item.action === "blocked";
+      default:
+        return true;
+    }
+  };
+
+  const passTimeFilter = (item: EventEntry) => {
+    if (timeFilter === "all") return true;
+    const d = dayjs(item.created_at);
+    if (!d.isValid()) return true;
+    const now = dayjs();
+    const diff = now.diff(d, "hour");
+    if (timeFilter === "24h") return diff <= 24;
+    if (timeFilter === "7d") return diff <= 24 * 7;
+    if (timeFilter === "30d") return diff <= 24 * 30;
+    return true;
+  };
+
+  const filtered = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    const list = logs.filter((item) => {
+      const text = item.text || item.reason || "";
+      const user = item.username || String(item.user_id || "");
+      const match = user.toLowerCase().includes(term) || text.toLowerCase().includes(term);
+      return match && passTabFilter(item) && passTimeFilter(item);
+    });
+    const sorted = [...list].sort((a, b) => {
+      const da = dayjs(a.created_at).valueOf();
+      const db = dayjs(b.created_at).valueOf();
+      return sortNewest ? db - da : da - db;
+    });
+    return sorted;
+  }, [logs, searchTerm, tab, timeFilter, sortNewest]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await exportCsv(chatId);
+      notify("Export dimulai (periksa unduhan)"); // sesuai gaya minimal
+    } catch (err) {
+      notify((err as Error).message ?? "Gagal mengunduh CSV");
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
     <div className="p-4 h-full flex flex-col pb-24 animate-fade-in">
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-white">History & Logs</h2>
-            <button className="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white">
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white disabled:opacity-60"
+            >
                 <Download size={20} />
             </button>
         </div>
@@ -52,11 +142,43 @@ export const Logs: React.FC = () => {
                 />
             </div>
             <div className="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide">
-                {['All', 'Verified', 'Flagged', 'Muted', 'Banned'].map(filter => (
-                    <button key={filter} className="px-3 py-1.5 rounded-full border border-slate-700 text-xs text-slate-300 hover:bg-slate-800 whitespace-nowrap">
-                        {filter}
+                {[
+                  { key: "all", label: "All" },
+                  { key: "verified", label: "Verified" },
+                  { key: "flagged", label: "Pending" },
+                  { key: "muted", label: "Muted/Warned" },
+                  { key: "banned", label: "Banned/Blocked" },
+                ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setTab(key as TabFilter)}
+                      className={`px-3 py-1.5 rounded-full border text-xs whitespace-nowrap transition ${
+                        tab === key ? 'border-primary-500 text-white bg-slate-800' : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+                      }`}
+                    >
+                        {label}
                     </button>
                 ))}
+                <div className="flex items-center space-x-2 pl-2">
+                  {[ "all", "24h", "7d", "30d" ].map((tf) => (
+                    <button
+                      key={tf}
+                      onClick={() => setTimeFilter(tf as TimeFilter)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] border transition ${
+                        timeFilter === tf ? 'border-primary-500 text-white' : 'border-slate-700 text-slate-400'
+                      }`}
+                    >
+                      {tf}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setSortNewest((p) => !p)}
+                    className="px-2.5 py-1 rounded-lg text-[11px] border border-slate-700 text-slate-300 hover:border-primary-400 transition flex items-center space-x-1"
+                  >
+                    <Clock size={12} />
+                    <span>{sortNewest ? "Newest" : "Oldest"}</span>
+                  </button>
+                </div>
             </div>
         </div>
 
@@ -70,30 +192,40 @@ export const Logs: React.FC = () => {
 
         {/* List */}
         <div className="space-y-2 overflow-y-auto flex-1 pr-1">
-            {mockLogs.filter(l => l.user.toLowerCase().includes(searchTerm.toLowerCase()) || l.content.toLowerCase().includes(searchTerm.toLowerCase())).map((log) => (
+            {loading && <div className="text-slate-400 text-sm px-2">Memuat...</div>}
+            {!loading && filtered.length === 0 && (
+              <div className="text-slate-500 text-sm px-2">Tidak ada data.</div>
+            )}
+            {filtered.map((log) => {
+              const score = log.prob_hate ?? 0;
+              const timeLabel = dayjs(log.created_at).isValid()
+                ? dayjs(log.created_at).fromNow()
+                : log.created_at;
+              return (
                 <div key={log.id} className="glass-panel p-3 rounded-xl grid grid-cols-12 gap-2 items-center hover:bg-slate-800/50 transition-colors">
                     <div className="col-span-3">
-                        <div className="text-xs text-slate-400 font-mono">{log.timestamp}</div>
-                        <div className="text-sm font-bold text-white truncate">{log.user}</div>
+                        <div className="text-xs text-slate-400 font-mono">{timeLabel}</div>
+                        <div className="text-sm font-bold text-white truncate">{log.username ?? `User ${log.user_id ?? '-'}`}</div>
                     </div>
                     <div className="col-span-2 flex justify-center">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getActionColor(log.action)}`}>
-                            {log.action}
+                            {log.action ?? 'unknown'}
                         </span>
                     </div>
                     <div className="col-span-2 text-center">
-                        <span className={`font-mono font-bold text-sm ${getScoreColor(log.hateScore)}`}>
-                            {log.hateScore}%
+                        <span className={`font-mono font-bold text-sm ${getScoreColor(score)}`}>
+                            {Math.round(score * 100)}%
                         </span>
                     </div>
                     <div className="col-span-4">
-                        <p className="text-xs text-slate-300 truncate opacity-80">{log.content}</p>
+                        <p className="text-xs text-slate-300 truncate opacity-80">{log.text ?? log.reason ?? 'Tidak ada konten'}</p>
                     </div>
                     <div className="col-span-1 flex justify-end">
                         <MoreHorizontal size={16} className="text-slate-500" />
                     </div>
                 </div>
-            ))}
+              );
+            })}
         </div>
     </div>
   );
