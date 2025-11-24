@@ -4,6 +4,7 @@ import { RefreshCw, Shield, AlertTriangle, UserX, VolumeX } from 'lucide-react';
 type LiveItem = { id: number; badge: string; tone: "danger" | "warning" | "muted"; text: string; time?: string };
 type Metric = { title: string; value: number; subtitle: string; icon: any; color: string; bg: string };
 type GroupItem = { id: number; name: string; cid: string; active: boolean; status: boolean; lastActive: string };
+type ModeSelection = "precision" | "balanced" | "recall" | "custom";
 
 type Props = {
   manualMode: boolean;
@@ -17,6 +18,16 @@ type Props = {
   onToggleGroupStatus: (id: number, currentStatus: boolean) => void;
   metrics: Array<{ title: string; value: number; subtitle: string }>;
   liveActivity: LiveItem[];
+  modeSelection: ModeSelection;
+  thresholdPreview: number;
+  thresholdMin: number;
+  thresholdMax: number;
+  onModeSelect: (mode: "precision" | "balanced" | "recall") => void;
+  onThresholdChange: (value: number) => void;
+  onThresholdCommit: () => void;
+  retentionDays: number;
+  onRetentionChange: (value: number) => void;
+  onRetentionCommit: () => void;
 };
 
 export const Dashboard: React.FC<Props> = ({
@@ -31,6 +42,16 @@ export const Dashboard: React.FC<Props> = ({
   onToggleGroupStatus,
   metrics,
   liveActivity,
+  modeSelection,
+  thresholdPreview,
+  thresholdMin,
+  thresholdMax,
+  onModeSelect,
+  onThresholdChange,
+  onThresholdCommit,
+  retentionDays,
+  onRetentionChange,
+  onRetentionCommit,
 }) => {
   const mappedMetrics: Metric[] = [
     { ...metrics[0], icon: Shield, color: "text-blue-400", bg: "from-blue-500/10 to-transparent" },
@@ -174,7 +195,82 @@ export const Dashboard: React.FC<Props> = ({
             ))}
         </div>
       </div>
-      
+
+      {/* Threshold & Mode Controls */}
+      <div className="glass-panel p-4 rounded-3xl border border-slate-700/50 space-y-4">
+        <div>
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Mode</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {(["precision", "balanced", "recall"] as const).map((mode) => {
+              const active = modeSelection === mode;
+              return (
+                <button
+                  key={mode}
+                  onClick={() => onModeSelect(mode)}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold capitalize transition-all border ${
+                    active
+                      ? "bg-slate-800 border-primary-400 text-white shadow"
+                      : "bg-slate-900/70 border-slate-700 text-slate-300 hover:border-primary-400/60 hover:text-white"
+                  }`}
+                >
+                  {mode}
+                </button>
+              );
+            })}
+            <div
+              className={`px-3 py-2 rounded-xl text-xs font-semibold capitalize border text-left ${
+                modeSelection === "custom"
+                  ? "bg-slate-800 border-primary-400 text-white"
+                  : "bg-slate-900/70 border-slate-700 text-slate-400"
+              }`}
+            >
+              custom
+              <p className="text-[10px] text-slate-500 mt-1">Diatur manual melalui slider.</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-baseline justify-between mb-2">
+            <h4 className="text-xs font-semibold text-slate-300">Ambang moderasi</h4>
+            <span className="text-xs font-mono text-primary-300">
+              {(thresholdPreview * 100).toFixed(1)}%
+            </span>
+          </div>
+          <div className="px-3 py-3 rounded-2xl bg-slate-900/70 border border-slate-800">
+            <input
+              type="range"
+              min={thresholdMin}
+              max={thresholdMax}
+              step={0.01}
+              value={thresholdPreview}
+              onChange={(e) => onThresholdChange(Number(e.target.value))}
+              onMouseUp={onThresholdCommit}
+              onPointerUp={onThresholdCommit}
+              onTouchEnd={onThresholdCommit}
+              onBlur={onThresholdCommit}
+              className="w-full accent-purple-400"
+            />
+          </div>
+        </div>
+
+        <div>
+          <h4 className="text-xs font-semibold text-slate-300 mb-2">RETENSI LOG (HARI)</h4>
+          <div className="px-3 py-3 rounded-2xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
+            <input
+              type="number"
+              min={1}
+              max={90}
+              value={retentionDays}
+              onChange={(e) => onRetentionChange(Number(e.target.value) || 0)}
+              onBlur={onRetentionCommit}
+              className="bg-transparent border-none outline-none text-sm text-white font-mono w-16 text-right"
+            />
+            <span className="text-[10px] text-slate-500 uppercase tracking-widest">days</span>
+          </div>
+        </div>
+      </div>
+
       {/* Live Feed Teaser */}
       <div className="glass-panel rounded-2xl p-4 border-l-4 border-neon-blue">
           <div className="flex justify-between items-center mb-2">
