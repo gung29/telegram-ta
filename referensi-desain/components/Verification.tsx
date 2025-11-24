@@ -12,6 +12,7 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
   const [items, setItems] = useState<EventEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState<number | null>(null);
+  const [filter, setFilter] = useState<"all" | "pending" | "hate" | "non-hate">("pending");
 
   const notify = (msg: string) => {
     if (typeof window !== "undefined") alert(msg);
@@ -56,6 +57,21 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
   };
 
   const pendingCount = useMemo(() => items.length, [items]);
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const label = item.manual_label;
+      const verified = item.manual_verified;
+      if (filter === "pending") return !verified;
+      if (filter === "hate") return verified && label === "hate";
+      if (filter === "non-hate") return verified && label === "non-hate";
+      return true;
+    });
+  }, [items, filter]);
+
+  const avatarUrl = (username?: string, userId?: number) => {
+    const seed = username || String(userId || "user");
+    return `https://ui-avatars.com/api/?background=0f172a&color=fff&name=${encodeURIComponent(seed)}`;
+  };
 
   return (
     <div className="p-4 pb-24 h-full flex flex-col animate-fade-in relative">
@@ -64,9 +80,24 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
                 <h2 className="text-2xl font-bold text-white">Manual Verification</h2>
                 <p className="text-sm text-slate-400">Review flagged messages</p>
             </div>
-            <button className="text-neon-blue hover:text-white">
-                <Filter size={24} />
-            </button>
+            <div className="flex items-center space-x-2">
+              {(["pending", "hate", "non-hate", "all"] as const).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                    filter === key
+                      ? "border-primary-400 text-white bg-slate-800"
+                      : "border-slate-700 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {key === "pending" ? "Pending" : key === "hate" ? "Hate" : key === "non-hate" ? "Non-hate" : "All"}
+                </button>
+              ))}
+              <button className="text-neon-blue hover:text-white" onClick={load} title="Refresh">
+                <Filter size={20} />
+              </button>
+            </div>
         </div>
 
         <div className="flex-1 relative">
@@ -75,14 +106,14 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
                 Memuat data...
               </div>
             )}
-            {!loading && items.length === 0 ? (
+            {!loading && filteredItems.length === 0 ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
                     <Check size={48} className="mb-4 text-green-500 opacity-50" />
                     <p>All caught up! No pending reviews.</p>
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {items.map((item) => (
+                    {filteredItems.map((item) => (
                         <div 
                             key={item.id} 
                             id={`card-${item.id}`}
@@ -90,7 +121,7 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
                         >
                             <div className="flex items-center space-x-3 mb-4">
                                 <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden">
-                                    <img src={`https://picsum.photos/40/40?random=${item.user_id ?? item.id}`} alt="Avatar" />
+                                    <img src={avatarUrl(item.username, item.user_id)} alt="Avatar" className="w-10 h-10 object-cover" />
                                 </div>
                                 <div>
                                     <h4 className="text-white font-bold">{item.username ?? `User ${item.user_id ?? "-"}`}</h4>
