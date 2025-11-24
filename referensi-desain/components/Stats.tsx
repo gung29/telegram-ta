@@ -123,9 +123,12 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
                 <p className="text-white text-lg font-bold">{totals.peak}</p>
               </div>
             </div>
-            <div className="h-48 w-full flex items-center justify-center">
-                <ResponsiveContainer width="92%" height="100%">
-                    <AreaChart data={chartData}>
+            <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={chartData}
+                      margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+                    >
                         <defs>
                             <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -157,7 +160,10 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
           </div>
           <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={actionDistribution}>
+              <BarChart
+                data={actionDistribution}
+                margin={{ top: 4, right: 8, bottom: 0, left: -10 }}
+              >
                 <XAxis dataKey="name" stroke="#475569" fontSize={11} axisLine={false} tickLine={false} />
                 <YAxis stroke="#475569" fontSize={11} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip
