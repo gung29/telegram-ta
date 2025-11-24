@@ -644,7 +644,10 @@ export const registerHandlers = (bot: TelegramBot) => {
       }
 
       const rapidOffenses = incrementOffense(msg.chat.id, msg.from.id);
-      const dailyOffenses = await incrementDailyOffense(msg.chat.id, msg.from.id);
+      // gunakan hitungan backend (persisten) + cache lokal agar tidak hilang
+      const backendWarns = await fetchActionCount(msg.chat.id, msg.from.id, "warned", "day");
+      const dailyOffenses = backendWarns + 1; // kali ini dihitung sebagai peringatan berikutnya
+      incrementDailyOffense(msg.chat.id, msg.from.id); // tetap update cache lokal
       const severity = prediction.prob_hate - threshold;
 
       // Warn sampai WARN_LIMIT_PER_DAY kali, setelah itu moderasi (mute/ban)
