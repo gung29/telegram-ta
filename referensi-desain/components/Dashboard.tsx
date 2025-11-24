@@ -47,8 +47,8 @@ export const Dashboard: React.FC<Props> = ({
         <div className="relative z-10">
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${manualMode ? 'bg-orange-500 animate-pulse' : 'bg-neon-green shadow-[0_0_10px_#0aff68]'}`}></div>
-                    <h2 className="text-lg font-bold tracking-wide text-white">
+                    <div className={`w-3 h-3 rounded-full ${manualMode ? 'bg-orange-400 shadow-[0_0_8px_#fb923c]' : 'bg-neon-green shadow-[0_0_10px_#22c55e]'}`}></div>
+                    <h2 className={`text-lg font-bold tracking-wide ${manualMode ? 'text-orange-100' : 'text-neon-green'}`}>
                         {manualMode ? 'Manual Mode' : 'Auto-Protection'}
                     </h2>
                 </div>
@@ -65,21 +65,18 @@ export const Dashboard: React.FC<Props> = ({
                 <label className="flex items-center cursor-pointer">
                     <div className="relative">
                         <input type="checkbox" className="sr-only" checked={!manualMode} onChange={onToggleMode} />
-                        <div className="relative inline-block">
-                        {/* Background */}
                         <div
-                            className={`block w-14 h-8 rounded-full transition-colors duration-300 
-                                        ${manualMode ? 'bg-green-700' : 'bg-slate-700'}`}
+                          className={`block w-12 h-7 rounded-full transition-colors duration-300 ${
+                            !manualMode ? 'bg-emerald-500' : 'bg-slate-700'
+                          }`}
                         ></div>
-
-                        {/* Dot */}
                         <div
-                            className={`dot absolute left-1 top-1 w-6 h-6 rounded-full transition-all duration-300 
-                                        ${manualMode ? 'translate-x-6 bg-green-400' : 'translate-x-0 bg-white'}`}
+                          className={`dot absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform duration-300 ${
+                            !manualMode ? 'translate-x-4' : ''
+                          }`}
                         ></div>
                     </div>
-                    </div>
-                    <span className="ml-3 text-sm font-medium text-slate-300">
+                    <span className={`ml-3 text-sm font-medium ${!manualMode ? 'text-white' : 'text-slate-300'}`}>
                         {manualMode ? 'Realtime OFF' : 'Realtime ON'}
                     </span>
                 </label>
