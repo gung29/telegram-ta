@@ -323,13 +323,26 @@ const applyBan = async (
 
 
 const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration) => {
-  await bot.restrictChatMember(chatId, member.user_id, {
-    permissions: defaultPermissions,
-    use_independent_chat_permissions: true,
-    until_date: 0,
-  } as any);
-  await removeMemberModeration(chatId, member.user_id, member.status);
-  clearManualStatus(chatId, member.user_id);
+  try {
+    await bot.restrictChatMember(chatId, member.user_id, {
+      permissions: defaultPermissions,          // ⬅️ semua can_send_* = true
+      use_independent_chat_permissions: true,
+      until_date: 0,                            // ⬅️ unmute permanen, sama kayak contoh
+    } as any);
+
+    logger.info(
+      { chatId, userId: member.user_id },
+      "User unmuted via releaseMuteIfExpired",
+    );
+
+    await removeMemberModeration(chatId, member.user_id, member.status);
+    clearManualStatus(chatId, member.user_id);
+  } catch (error: any) {
+    logger.warn(
+      { err: error, chatId, userId: member.user_id },
+      "Error unmuting user in releaseMuteIfExpired",
+    );
+  }
 };
 
 const releaseBanIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration) => {
