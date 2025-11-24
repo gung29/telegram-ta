@@ -9,7 +9,8 @@ type Props = {
   manualMode: boolean;
   lastUpdate: string;
   refreshing: boolean;
-  onToggleMode: () => void;
+  realtimeOn: boolean;
+  onToggleRealtime: () => void;
   onRefresh: () => void;
   groups: GroupItem[];
   onSelectGroup: (id: number) => void;
@@ -22,7 +23,8 @@ export const Dashboard: React.FC<Props> = ({
   manualMode,
   lastUpdate,
   refreshing,
-  onToggleMode,
+  realtimeOn,
+  onToggleRealtime,
   onRefresh,
   groups,
   onSelectGroup,
@@ -64,20 +66,20 @@ export const Dashboard: React.FC<Props> = ({
             <div className="flex items-center justify-between">
                 <label className="flex items-center cursor-pointer">
                     <div className="relative">
-                        <input type="checkbox" className="sr-only" checked={!manualMode} onChange={onToggleMode} />
+                        <input type="checkbox" className="sr-only" checked={realtimeOn} onChange={onToggleRealtime} />
                         <div
                           className={`block w-12 h-7 rounded-full transition-colors duration-300 ${
-                            !manualMode ? 'bg-emerald-500' : 'bg-slate-700'
+                            realtimeOn ? 'bg-emerald-500' : 'bg-slate-700'
                           }`}
                         ></div>
                         <div
                           className={`dot absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-sm transition-transform duration-300 ${
-                            !manualMode ? 'translate-x-4' : ''
+                            realtimeOn ? 'translate-x-4' : ''
                           }`}
                         ></div>
                     </div>
-                    <span className={`ml-3 text-sm font-medium ${!manualMode ? 'text-white' : 'text-slate-300'}`}>
-                        {manualMode ? 'Realtime OFF' : 'Realtime ON'}
+                    <span className={`ml-3 text-sm font-medium ${realtimeOn ? 'text-white' : 'text-slate-300'}`}>
+                        {realtimeOn ? 'Realtime ON' : 'Realtime OFF'}
                     </span>
                 </label>
                 
@@ -122,10 +124,10 @@ export const Dashboard: React.FC<Props> = ({
                          }`}
                        >
                          <span
-                           className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform ${
-                             g.status ? 'translate-x-4' : ''
-                           }`}
-                         />
+                          className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform ${
+                            g.status ? 'translate-x-4' : ''
+                          }`}
+                        />
                        </button>
                   </div>
                 </button>

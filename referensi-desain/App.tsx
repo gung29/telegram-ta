@@ -155,7 +155,7 @@ function App() {
 
   useEffect(() => {
     if (!autoRefresh || !chatId) return;
-    const timer = setInterval(() => loadCore(chatId), 1500);
+    const timer = setInterval(() => loadCore(chatId), 1000);
     return () => clearInterval(timer);
   }, [autoRefresh, chatId]);
 
@@ -170,10 +170,8 @@ function App() {
     }
   };
 
-  const handleToggleMode = async () => {
-    if (!chatId || !settings) return;
-    const next = !settings.enabled;
-    await handleSettingsUpdate({ enabled: next });
+  const handleToggleRealtime = () => {
+    setAutoRefresh((prev) => !prev);
   };
 
   const handleModeSelect = async (mode: SettingsResponse["mode"]) => {
@@ -249,7 +247,8 @@ function App() {
             manualMode={manualMode}
             lastUpdate={lastUpdateText}
             refreshing={refreshing}
-            onToggleMode={handleToggleMode}
+            realtimeOn={autoRefresh}
+            onToggleRealtime={handleToggleRealtime}
             onRefresh={() => chatId && loadCore(chatId)}
             groups={dashboardGroups}
             onSelectGroup={(id) => setChatId(id)}
