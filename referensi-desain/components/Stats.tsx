@@ -52,8 +52,8 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
     if (!stats) return [];
     const items = [
       { name: "Warned", value: stats.warned, color: "#f59e0b" },
-      { name: "Muted", value: stats.warned, color: "#6366f1" },
       { name: "Blocked", value: stats.blocked, color: "#ef4444" },
+      { name: "Deleted", value: stats.deleted, color: "#6366f1" },
     ].filter((d) => d.value > 0);
     return items.length ? items : [{ name: "No data", value: 1, color: "#475569" }];
   }, [stats]);
@@ -61,9 +61,9 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
   const actionDistribution = useMemo(() => {
     if (!stats) return [];
     return [
-      { name: "Deleted", value: stats.deleted },
-      { name: "Warned", value: stats.warned },
-      { name: "Blocked", value: stats.blocked },
+      { name: "Deleted", value: stats.deleted, color: "#6366f1" },
+      { name: "Warned", value: stats.warned, color: "#f59e0b" },
+      { name: "Blocked", value: stats.blocked, color: "#ef4444" },
     ];
   }, [stats]);
 
@@ -129,8 +129,8 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
                 <p className="text-white text-lg font-bold">{totals.peak}</p>
               </div>
             </div>
-            <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="h-48 w-full flex items-center justify-center">
+                <ResponsiveContainer width="92%" height="100%">
                     <AreaChart data={chartData}>
                         <defs>
                             <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
@@ -212,7 +212,11 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
                 <YAxis stroke="#475569" fontSize={11} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: 10 }} />
                 <Legend />
-                <Bar dataKey="value" fill="#60a5fa" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                  {actionDistribution.map((entry, idx) => (
+                    <Cell key={`bar-${idx}`} fill={entry.color} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
