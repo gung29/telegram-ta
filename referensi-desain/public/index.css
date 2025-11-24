@@ -1,0 +1,4 @@
+/* Placeholder stylesheet to silence missing /index.css warnings when serving dist */
+body {
+  margin: 0;
+}
