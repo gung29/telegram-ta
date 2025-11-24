@@ -105,9 +105,21 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
   };
 
   const handleResetWarning = async (userId: number) => {
-    setPendingAction(`reset-${userId}`);
+    setPendingAction(`reset-warning-${userId}`);
     try {
       await resetUserAction(chatId, userId, "warned");
+      await load();
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleResetMute = async (userId: number) => {
+    setPendingAction(`reset-mute-${userId}`);
+    try {
+      await resetUserAction(chatId, userId, "muted");
       await load();
     } catch (err) {
       if (err instanceof HttpError) notify(err.message);
@@ -276,13 +288,20 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <button
-                          disabled={pendingAction === `reset-${user.user_id}`}
+                          disabled={pendingAction === `reset-warning-${user.user_id}`}
                           onClick={() => handleResetWarning(user.user_id!)}
                           className="py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
                         >
                             <AlertOctagon size={14} className="mr-1.5" /> Reset Warning
+                        </button>
+                        <button
+                          disabled={pendingAction === `reset-mute-${user.user_id}`}
+                          onClick={() => handleResetMute(user.user_id!)}
+                          className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                        >
+                            <RefreshCw size={14} className="mr-1.5" /> Reset Mute
                         </button>
                         <button
                           disabled={pendingAction === `${user.kind === 'muted' ? 'unmute' : 'unban'}-${user.user_id}`}
@@ -335,11 +354,18 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    disabled={pendingAction === `reset-${u.user_id}`}
+                    disabled={pendingAction === `reset-warning-${u.user_id}`}
                     onClick={() => handleResetWarning(u.user_id)}
                     className="py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
                   >
                     <AlertOctagon size={14} className="mr-1.5" /> Reset Warning
+                  </button>
+                  <button
+                    disabled={pendingAction === `reset-mute-${u.user_id}`}
+                    onClick={() => handleResetMute(u.user_id)}
+                    className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                  >
+                    <RefreshCw size={14} className="mr-1.5" /> Reset Mute
                   </button>
                   {u.banned ? (
                     <button
