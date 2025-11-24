@@ -872,15 +872,15 @@ export default function App() {
   };
 
   const Navigation = () => {
-    const tabs: Array<{ key: View; label: string; icon: string }> = [
-      { key: "dashboard", label: "Dash", icon: "▦" },
-      { key: "stats", label: "Stats", icon: "📈" },
-      { key: "logs", label: "Logs", icon: "🧾" },
-      { key: "verify", label: "Verify", icon: "✅" },
-      { key: "admin", label: "Admin", icon: "🛡" },
+    const tabs: Array<{ key: View; label: string }> = [
+      { key: "dashboard", label: "Dash" },
+      { key: "stats", label: "Stats" },
+      { key: "logs", label: "Logs" },
+      { key: "verify", label: "Verify" },
+      { key: "admin", label: "Admin" },
     ];
     return (
-      <nav className="sidebar panel" aria-label="Navigasi utama">
+      <nav className="sidebar panel">
         <div className="nav-list">
           {tabs.map((item) => (
             <button
@@ -889,10 +889,7 @@ export default function App() {
               className={clsx("nav-item", currentView === item.key && "active")}
               onClick={() => setCurrentView(item.key)}
             >
-              <span className="nav-icon" aria-hidden="true">
-                {item.icon}
-              </span>
-              <span className="nav-label">{item.label}</span>
+              <span>{item.label}</span>
             </button>
           ))}
         </div>

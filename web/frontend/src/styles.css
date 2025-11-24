@@ -49,7 +49,7 @@ textarea {
   width: 100%;
   max-width: 520px;
   min-height: 100vh;
-  padding: 16px 0 calc(110px + env(safe-area-inset-bottom, 0px));
+  padding: 16px 0 110px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -612,11 +612,11 @@ textarea.input {
   bottom: 0;
   margin: 0 auto;
   max-width: 520px;
-  padding: 10px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 10px 20px 12px;
   background: linear-gradient(180deg, rgba(10, 14, 26, 0.98), rgba(10, 14, 26, 0.94));
   border-radius: 20px 20px 0 0;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  z-index: 120;
+  z-index: 90;
 }
 
 .sidebar.panel {
@@ -639,26 +639,20 @@ textarea.input {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 6px 0 2px;
+  padding: 6px 0 0;
   border: none;
   background: transparent;
   color: var(--muted);
   font-weight: 700;
 }
 
-.nav-icon {
-  width: 38px;
-  height: 38px;
+.nav-item::before {
+  content: "";
+  width: 36px;
+  height: 36px;
   border-radius: 12px;
   background: rgba(15, 23, 42, 0.9);
-  display: grid;
-  place-items: center;
   box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.5);
-  font-size: 16px;
-}
-
-.nav-label {
-  font-size: 11px;
 }
 
 .nav-item.active {
@@ -666,7 +660,7 @@ textarea.input {
   transform: translateY(-2px);
 }
 
-.nav-item.active .nav-icon {
+.nav-item.active::before {
   background: radial-gradient(circle at 30% 0%, rgba(0, 243, 255, 0.6), rgba(99, 102, 241, 0.9));
   box-shadow: 0 0 18px rgba(0, 243, 255, 0.7);
 }
