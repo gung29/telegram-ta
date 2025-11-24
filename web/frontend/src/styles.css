@@ -1,18 +1,18 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap");
 
 :root {
-  --bg: #0a0b1e;
-  --panel-bg: rgba(10, 15, 35, 0.95);
-  --panel-border: rgba(71, 85, 105, 0.3);
-  --glass-bg: rgba(15, 23, 42, 0.7);
-  --glass-border: rgba(71, 85, 105, 0.2);
-  --text: #f1f5f9;
+  --bg: #020617;
+  --panel-bg: rgba(10, 15, 30, 0.92);
+  --panel-border: rgba(226, 232, 240, 0.06);
+  --glass-bg: rgba(12, 18, 32, 0.75);
+  --glass-border: rgba(226, 232, 240, 0.08);
+  --text: #e2e8f0;
   --muted: #94a3b8;
-  --accent-1: #6366f1;
-  --accent-2: #8b5cf6;
-  --accent-3: #3b82f6;
-  --danger: #f43f5e;
-  --warning: #fb923c;
+  --accent-1: #00e0ff;
+  --accent-2: #6366f1;
+  --accent-3: #a855f7;
+  --danger: #ef4444;
+  --warning: #f59e0b;
   --success: #22c55e;
   --radius-lg: 24px;
   --radius-md: 18px;
@@ -23,7 +23,7 @@
   --space-md: 18px;
   --space-sm: 14px;
   --space-xs: 10px;
-  font-family: "Inter", "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Inter", "JetBrains Mono", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color-scheme: dark;
 }
 
@@ -37,10 +37,10 @@ body,
 #root {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.15), transparent 50%),
-              radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1), transparent 50%),
-              radial-gradient(circle at 40% 20%, rgba(59, 130, 246, 0.1), transparent 50%),
-              var(--bg);
+  background: radial-gradient(circle at 15% 10%, rgba(0, 224, 255, 0.12), transparent 35%),
+              radial-gradient(circle at 85% 20%, rgba(99, 102, 241, 0.1), transparent 32%),
+              radial-gradient(circle at 40% 80%, rgba(168, 85, 247, 0.09), transparent 40%),
+              linear-gradient(180deg, #030713 0%, #050b18 35%, #050b18 100%);
   color: var(--text);
   overflow-x: hidden;
 }
@@ -1475,6 +1475,117 @@ textarea.input:focus {
   color: #86efac;
 }
 
+.group-chip {
+  position: relative;
+  overflow: hidden;
+}
+
+.group-chip::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 8px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(0, 224, 255, 0.35), rgba(99, 102, 241, 0.4));
+  opacity: 0.35;
+}
+
+.group-chip.active::after {
+  opacity: 1;
+  box-shadow: 0 0 0 1px rgba(0, 224, 255, 0.2), 0 6px 16px -8px rgba(0, 0, 0, 0.6);
+}
+
+.metric-card {
+  position: relative;
+  align-items: flex-start;
+  text-align: left;
+  gap: 6px;
+  background: radial-gradient(circle at 20% 20%, rgba(0, 224, 255, 0.08), transparent 35%),
+              linear-gradient(145deg, rgba(10, 15, 30, 0.9), rgba(14, 23, 42, 0.85));
+}
+
+.metric-card::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(0, 224, 255, 0.12), rgba(99, 102, 241, 0.12));
+  filter: blur(0.5px);
+}
+
+.metric-card h3 {
+  color: #e0f2fe;
+  text-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+.metric-card small {
+  color: #94a3b8;
+}
+
+.history-panel table strong {
+  color: #e2e8f0;
+}
+
+.history-panel .badge {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.history-panel input.input {
+  background: linear-gradient(135deg, rgba(8, 15, 30, 0.92), rgba(8, 15, 30, 0.82));
+}
+
+.input,
+textarea.input {
+  background: linear-gradient(135deg, rgba(8, 15, 30, 0.92), rgba(8, 15, 30, 0.82));
+  border: 1px solid rgba(226, 232, 240, 0.08);
+  color: #e2e8f0;
+}
+
+.input:focus,
+textarea.input:focus {
+  border-color: rgba(0, 224, 255, 0.5);
+  box-shadow: 0 0 0 2px rgba(0, 224, 255, 0.18);
+}
+
+.tab-group .tab {
+  background: rgba(8, 15, 30, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.08);
+  color: #cbd5f5;
+}
+
+.tab-group .tab.active {
+  background: linear-gradient(135deg, rgba(0, 224, 255, 0.18), rgba(99, 102, 241, 0.2));
+  border-color: rgba(0, 224, 255, 0.4);
+  color: #e2e8f0;
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.7), 0 0 12px rgba(0, 224, 255, 0.15);
+}
+
+.verification-card .verify-actions .btn {
+  background: rgba(8, 15, 30, 0.9);
+}
+
+.verification-card .verify-actions .btn.danger {
+  background: linear-gradient(120deg, rgba(239, 68, 68, 0.16), rgba(248, 113, 113, 0.1));
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.verification-card .verify-actions .btn.success {
+  background: linear-gradient(120deg, rgba(52, 211, 153, 0.16), rgba(16, 185, 129, 0.1));
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.user-action-card header strong {
+  color: #e2e8f0;
+}
+
+.user-actions-panel .btn.ghost {
+  border-color: rgba(226, 232, 240, 0.1);
+}
 @media (min-width: 900px) {
   .app-shell {
     display: grid;
@@ -1688,30 +1799,13 @@ textarea.input:focus {
 }
 
 /* === Theme refresh inspired by HateSpeechModerator Pro === */
-:root {
-  --bg: #020617;
-  --panel-bg: rgba(15, 23, 42, 0.68);
-  --panel-border: rgba(226, 232, 240, 0.06);
-  --glass-bg: rgba(15, 23, 42, 0.55);
-  --glass-border: rgba(226, 232, 240, 0.08);
-  --text: #e2e8f0;
-  --muted: #94a3b8;
-  --accent-1: #00e0ff;
-  --accent-2: #6366f1;
-  --accent-3: #a855f7;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --success: #22c55e;
-  font-family: "Inter", "JetBrains Mono", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
 body,
 #root {
   position: relative;
   background: radial-gradient(circle at 15% 10%, rgba(0, 224, 255, 0.12), transparent 35%),
               radial-gradient(circle at 85% 20%, rgba(99, 102, 241, 0.1), transparent 32%),
               radial-gradient(circle at 40% 80%, rgba(168, 85, 247, 0.09), transparent 40%),
-              var(--bg);
+              linear-gradient(180deg, #030713 0%, #050b18 35%, #050b18 100%);
 }
 
 body::before,
