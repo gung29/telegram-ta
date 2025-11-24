@@ -122,7 +122,7 @@ class MemberModerationPayload(BaseModel):
     user_id: int
     username: Optional[str] = None
     status: MemberStatus
-    duration_minutes: Optional[int] = Field(None, ge=0 le=10080)
+    duration_minutes: Optional[int] = Field(None, ge=0,le=10080)
     reason: Optional[str] = Field(None, max_length=200)
 
 
