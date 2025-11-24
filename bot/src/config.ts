@@ -28,7 +28,8 @@ export const botConfig = {
   webhookHost: process.env.WEBHOOK_HOST ?? "0.0.0.0",
   webhookPath: process.env.WEBHOOK_PATH ?? "/webhook",
   webhookSecret: process.env.WEBHOOK_SECRET ?? "hate-guard-secret",
-  moderateAdmins: ["1", "true", "yes"].includes((process.env.MODERATE_ADMINS ?? "false").toLowerCase()),
+  // Moderasi admin diaktifkan secara default; set MODERATE_ADMINS=false jika ingin membiarkan admin bypass
+  moderateAdmins: ["1", "true", "yes", ""].includes((process.env.MODERATE_ADMINS ?? "true").toLowerCase()),
 };
 
 export const useWebhook = Boolean(botConfig.webhookUrl);
