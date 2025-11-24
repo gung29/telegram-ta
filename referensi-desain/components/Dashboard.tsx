@@ -151,6 +151,7 @@ export const Dashboard: React.FC<Props> = ({
       </div>
 
       {/* Threshold & Mode Controls */}
+      {/* Styling dibuat senada dengan panel lain, tanpa mengubah tampilan existing */}
       <div className="glass-panel p-4 rounded-3xl border border-slate-700/50 space-y-4">
         <div>
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Mode</h3>
@@ -163,8 +164,8 @@ export const Dashboard: React.FC<Props> = ({
                   onClick={() => onModeSelect(mode)}
                   className={`px-3 py-2 rounded-xl text-xs font-semibold capitalize transition-all border ${
                     active
-                      ? "bg-gradient-to-br from-primary-500/30 to-purple-600/30 border-primary-400 text-white shadow-[0_0_12px_rgba(56,189,248,0.35)]"
-                      : "bg-slate-900/60 border-slate-700 text-slate-300 hover:border-primary-400/60 hover:text-white"
+                      ? "bg-slate-800 border-primary-400 text-white shadow"
+                      : "bg-slate-900/70 border-slate-700 text-slate-300 hover:border-primary-400/60 hover:text-white"
                   }`}
                 >
                   {mode}
@@ -174,8 +175,8 @@ export const Dashboard: React.FC<Props> = ({
             <div
               className={`px-3 py-2 rounded-xl text-xs font-semibold capitalize border text-left ${
                 modeSelection === "custom"
-                  ? "bg-slate-900/80 border-primary-400 text-white"
-                  : "bg-slate-900/60 border-slate-700 text-slate-400"
+                  ? "bg-slate-800 border-primary-400 text-white"
+                  : "bg-slate-900/70 border-slate-700 text-slate-400"
               }`}
             >
               custom
