@@ -1,30 +1,151 @@
-import React, { useState } from 'react';
-import { UserOffender } from '../types';
-import { Trash2, AlertOctagon, ShieldCheck, Zap } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertOctagon, ShieldCheck, Zap, UserPlus, RefreshCw } from 'lucide-react';
+import {
+  fetchAdmins,
+  addAdmin,
+  removeAdmin,
+  fetchMembers,
+  fetchUserActions,
+  resetUserAction,
+  deleteMemberStatus,
+  AdminEntry,
+  MemberModeration,
+  UserActionSummary,
+  HttpError,
+} from "../lib/api";
 
-export const AdminPanel: React.FC = () => {
+type Props = { chatId: number };
+
+type PenaltyKind = "muted" | "banned";
+
+export const AdminPanel: React.FC<Props> = ({ chatId }) => {
   const [testText, setTestText] = useState('');
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  const [loadingTest, setLoadingTest] = useState(false);
+
+  const [admins, setAdmins] = useState<AdminEntry[]>([]);
+  const [muted, setMuted] = useState<MemberModeration[]>([]);
+  const [banned, setBanned] = useState<MemberModeration[]>([]);
+  const [userActions, setUserActions] = useState<UserActionSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [newAdminId, setNewAdminId] = useState<string>('');
 
-  const [admins] = useState([
-      { id: '1', name: 'Admin 1', uid: '12345' },
-      { id: '2', name: 'Admin 2', uid: '67890' },
-  ]);
+  const notify = (msg: string) => {
+    if (typeof window !== "undefined") alert(msg);
+  };
 
-  const [mutedUsers] = useState<UserOffender[]>([
-      { id: 'u1', username: 'UserA', userId: '111', warnings: 2, mutes: 1, lastActivity: '2h', avatarId: 101 },
-  ]);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [a, m, b, ua] = await Promise.all([
+        fetchAdmins(chatId),
+        fetchMembers(chatId, "muted"),
+        fetchMembers(chatId, "banned"),
+        fetchUserActions(chatId),
+      ]);
+      setAdmins(a);
+      setMuted(m);
+      setBanned(b);
+      setUserActions(ua);
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, [chatId]);
 
   const handleTestModel = async () => {
     if (!testText.trim()) return;
-    setLoading(true);
-    // Integrasi Gemini dimatikan; tampilkan placeholder
+    setLoadingTest(true);
     setTimeout(() => {
       setAnalysisResult("Integrasi model dinonaktifkan. Gunakan endpoint model Anda sendiri.");
-      setLoading(false);
+      setLoadingTest(false);
     }, 400);
   };
+
+  const handleAddAdmin = async () => {
+    const uid = Number(newAdminId);
+    if (!uid) {
+      notify("Masukkan user id valid");
+      return;
+    }
+    setPendingAction("add-admin");
+    try {
+      await addAdmin(chatId, uid);
+      setNewAdminId('');
+      await load();
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleRemoveAdmin = async (userId: number) => {
+    setPendingAction(`remove-${userId}`);
+    try {
+      await removeAdmin(chatId, userId);
+      await load();
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleResetWarning = async (userId: number) => {
+    setPendingAction(`reset-${userId}`);
+    try {
+      await resetUserAction(chatId, userId, "warned");
+      await load();
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleUnmute = async (userId: number) => {
+    setPendingAction(`unmute-${userId}`);
+    try {
+      await deleteMemberStatus(chatId, userId, "muted");
+      await load();
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleUnban = async (userId: number) => {
+    setPendingAction(`unban-${userId}`);
+    try {
+      await deleteMemberStatus(chatId, userId, "banned");
+      await load();
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const penalties = useMemo(() => {
+    const actionsMap = new Map<number, UserActionSummary>();
+    userActions.forEach((u) => actionsMap.set(u.user_id, u));
+    const mix = (list: MemberModeration[], kind: PenaltyKind) =>
+      list.map((m) => ({
+        ...m,
+        kind,
+        warns: actionsMap.get(m.user_id ?? 0)?.warnings_today ?? 0,
+        mutes: actionsMap.get(m.user_id ?? 0)?.mutes_total ?? 0,
+      }));
+    return [...mix(muted, "muted"), ...mix(banned, "banned")];
+  }, [muted, banned, userActions]);
 
   return (
     <div className="p-4 pb-24 space-y-8 animate-fade-in">
@@ -38,20 +159,44 @@ export const AdminPanel: React.FC = () => {
         {/* Admins List */}
         <div className="glass-panel rounded-2xl p-1">
             {admins.map(admin => (
-                <div key={admin.id} className="flex items-center justify-between p-3 border-b border-slate-700/50 last:border-0">
+                <div key={admin.user_id} className="flex items-center justify-between p-3 border-b border-slate-700/50 last:border-0">
                     <div>
-                        <div className="font-bold text-white text-sm">{admin.name}</div>
-                        <div className="text-xs text-slate-500">ID: {admin.uid}</div>
+                        <div className="font-bold text-white text-sm">Admin {admin.user_id}</div>
+                        <div className="text-xs text-slate-500">ID: {admin.user_id}</div>
                     </div>
-                    <button className="text-xs bg-slate-800 hover:bg-red-900/30 hover:text-red-400 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors">
+                    <button
+                      disabled={pendingAction === `remove-${admin.user_id}`}
+                      onClick={() => handleRemoveAdmin(admin.user_id)}
+                      className="text-xs bg-slate-800 hover:bg-red-900/30 hover:text-red-400 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors disabled:opacity-60"
+                    >
                         Remove
                     </button>
                 </div>
             ))}
-            <div className="p-2">
-                <button className="w-full py-2 bg-primary-600/20 text-primary-400 border border-primary-600/30 rounded-lg text-sm font-bold hover:bg-primary-600 hover:text-white transition-all">
-                    Add New Admin
+            <div className="p-3 space-y-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  placeholder="Admin user id"
+                  value={newAdminId}
+                  onChange={(e) => setNewAdminId(e.target.value)}
+                  className="flex-1 bg-slate-900/80 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary-500 focus:outline-none"
+                />
+                <button
+                  onClick={handleAddAdmin}
+                  disabled={pendingAction === "add-admin"}
+                  className="px-3 py-2 rounded-lg bg-primary-600/30 text-primary-200 border border-primary-500/40 hover:bg-primary-600 hover:text-white text-xs font-bold disabled:opacity-60"
+                >
+                  <UserPlus size={16} />
                 </button>
+              </div>
+              <button
+                onClick={load}
+                className="w-full py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold border border-slate-700 hover:border-primary-400 flex items-center justify-center space-x-2"
+              >
+                <RefreshCw size={14} />
+                <span>Reload Admins</span>
+              </button>
             </div>
         </div>
 
@@ -73,10 +218,10 @@ export const AdminPanel: React.FC = () => {
 
              <button 
                 onClick={handleTestModel}
-                disabled={loading}
-                className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center transition-all ${loading ? 'bg-slate-700 cursor-not-allowed' : 'bg-slate-800 border border-slate-700'}`}
+                disabled={loadingTest}
+                className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center transition-all ${loadingTest ? 'bg-slate-700 cursor-not-allowed' : 'bg-slate-800 border border-slate-700'}`}
              >
-                 {loading ? 'Memproses…' : 'Analyze (placeholder)'}
+                 {loadingTest ? 'Memproses…' : 'Analyze (placeholder)'}
              </button>
 
              {analysisResult && (
@@ -86,20 +231,21 @@ export const AdminPanel: React.FC = () => {
              )}
         </div>
 
-        {/* Muted Users Management */}
+        {/* Muted/Banned Users Management */}
         <div>
             <h3 className="text-white font-bold mb-3">Active Penalties</h3>
-            
-            {mutedUsers.map(user => (
-                <div key={user.id} className="glass-panel p-4 rounded-2xl mb-3 border border-slate-800">
+            {loading && <p className="text-slate-400 text-sm">Memuat...</p>}
+            {!loading && penalties.length === 0 && <p className="text-slate-500 text-sm">Tidak ada penalti aktif.</p>}
+            {penalties.map(user => (
+                <div key={`${user.kind}-${user.id}`} className="glass-panel p-4 rounded-2xl mb-3 border border-slate-800">
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <div className="font-bold text-white">{user.username}</div>
-                            <div className="text-xs text-slate-500">ID: {user.userId}</div>
+                            <div className="font-bold text-white">{user.username ?? `User ${user.user_id ?? '-'}`}</div>
+                            <div className="text-xs text-slate-500">ID: {user.user_id}</div>
                         </div>
                         <div className="flex space-x-1">
                             <div className="px-2 py-1 bg-orange-500/20 text-orange-400 rounded text-[10px] font-bold border border-orange-500/20">
-                                {user.warnings} Warns
+                                {user.warns} Warns
                             </div>
                              <div className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-[10px] font-bold border border-purple-500/20">
                                 {user.mutes} Mutes
@@ -108,11 +254,19 @@ export const AdminPanel: React.FC = () => {
                     </div>
                     
                     <div className="grid grid-cols-2 gap-3">
-                        <button className="py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center">
+                        <button
+                          disabled={pendingAction === `reset-${user.user_id}`}
+                          onClick={() => handleResetWarning(user.user_id!)}
+                          className="py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                        >
                             <AlertOctagon size={14} className="mr-1.5" /> Reset Warning
                         </button>
-                        <button className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center">
-                            <ShieldCheck size={14} className="mr-1.5" /> Unmute
+                        <button
+                          disabled={pendingAction === `${user.kind === 'muted' ? 'unmute' : 'unban'}-${user.user_id}`}
+                          onClick={() => (user.kind === 'muted' ? handleUnmute(user.user_id!) : handleUnban(user.user_id!))}
+                          className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                        >
+                            <ShieldCheck size={14} className="mr-1.5" /> {user.kind === 'muted' ? 'Unmute' : 'Unban'}
                         </button>
                     </div>
                 </div>
