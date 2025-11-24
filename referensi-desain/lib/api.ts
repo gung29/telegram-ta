@@ -173,17 +173,25 @@ export const createMemberStatus = (
 
   export const upsertMemberModeration = (
   chatId: number,
-  payload: { user_id: number; username?: string; status: MemberStatus; duration_minutes?: number; reason?: string },
+  payload: { 
+    user_id: number; 
+    username?: string; 
+    status: MemberStatus; 
+    duration_minutes?: number; 
+    reason?: string;
+  }
 ) =>
-  baseFetch(`/api/members?${qs({ chat_id: chatId })}`, {
+  baseFetch(`/admin/groups/${chatId}/members`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 
+
 export const deleteMemberStatus = (chatId: number, userId: number, status: MemberStatus) =>
-  baseFetch(`/api/members/${userId}?${qs({ chat_id: chatId, status })}`, {
+  baseFetch(`/admin/groups/${chatId}/members/${userId}?${qs({ status })}`, {
     method: "DELETE",
   });
+
 
 export const fetchActivity = (chatId: number, days = 7) =>
   baseFetch<ActivityResponse>(`/api/activity?${qs({ chat_id: chatId, days })}`);
