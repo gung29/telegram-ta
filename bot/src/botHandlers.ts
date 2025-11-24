@@ -644,10 +644,12 @@ export const registerHandlers = (bot: TelegramBot) => {
       }
 
       const rapidOffenses = incrementOffense(msg.chat.id, msg.from.id);
-      // gunakan hitungan backend (persisten) + cache lokal agar tidak hilang
+      // gunakan kombinasi cache lokal + backend agar konsisten
+      const record = ensureDailyRecord(msg.chat.id, msg.from.id);
       const backendWarns = await fetchActionCount(msg.chat.id, msg.from.id, "warned", "day");
-      const dailyOffenses = backendWarns + 1; // kali ini dihitung sebagai peringatan berikutnya
-      incrementDailyOffense(msg.chat.id, msg.from.id); // tetap update cache lokal
+      const dailyOffenses = Math.max(record.count, backendWarns) + 1; // hitung peringatan ke-n untuk pesan ini
+      // sinkronkan cache lokal dengan nilai terbaru
+      dailyOffenseMap.set(offenseKey(msg.chat.id, msg.from.id), { ...record, count: dailyOffenses });
       const severity = prediction.prob_hate - threshold;
 
       // Warn sampai WARN_LIMIT_PER_DAY kali, setelah itu moderasi (mute/ban)
