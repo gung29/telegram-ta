@@ -926,11 +926,11 @@ export default function App() {
   };
 
   const navigation: { key: SectionKey; label: string }[] = [
-    { key: "overview", label: "Ikhtisar" },
-    { key: "analytics", label: "Analitik" },
-    { key: "history", label: "Riwayat" },
+    { key: "overview", label: "Dash" },
+    { key: "analytics", label: "Stats" },
+    { key: "history", label: "Logs" },
     { key: "admin", label: "Admin" },
-    { key: "members", label: "Anggota" },
+    { key: "members", label: "Verify" },
   ];
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
 
