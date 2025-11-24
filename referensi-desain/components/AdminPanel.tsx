@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { UserOffender } from '../types';
-import { analyzeTextWithGemini, AnalysisResult } from '../services/geminiService';
-import { Trash2, AlertOctagon, RefreshCcw, ShieldCheck, Zap } from 'lucide-react';
+import { Trash2, AlertOctagon, ShieldCheck, Zap } from 'lucide-react';
 
 export const AdminPanel: React.FC = () => {
   const [testText, setTestText] = useState('');
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const [admins] = useState([
@@ -20,16 +19,11 @@ export const AdminPanel: React.FC = () => {
   const handleTestModel = async () => {
     if (!testText.trim()) return;
     setLoading(true);
-    setAnalysisResult(null);
-    
-    try {
-        const result = await analyzeTextWithGemini(testText);
-        setAnalysisResult(result);
-    } catch (e) {
-        console.error(e);
-    } finally {
-        setLoading(false);
-    }
+    // Integrasi Gemini dimatikan; tampilkan placeholder
+    setTimeout(() => {
+      setAnalysisResult("Integrasi model dinonaktifkan. Gunakan endpoint model Anda sendiri.");
+      setLoading(false);
+    }, 400);
   };
 
   return (
@@ -80,34 +74,14 @@ export const AdminPanel: React.FC = () => {
              <button 
                 onClick={handleTestModel}
                 disabled={loading}
-                className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center transition-all ${loading ? 'bg-slate-700 cursor-not-allowed' : 'bg-gradient-to-r from-primary-600 to-purple-600 shadow-[0_0_15px_rgba(124,58,237,0.4)] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)]'}`}
+                className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center transition-all ${loading ? 'bg-slate-700 cursor-not-allowed' : 'bg-slate-800 border border-slate-700'}`}
              >
-                 {loading ? <RefreshCcw className="animate-spin mr-2" size={18} /> : 'Analyze Text'}
+                 {loading ? 'Memproses…' : 'Analyze (placeholder)'}
              </button>
 
              {analysisResult && (
-                 <div className="mt-4 p-4 bg-slate-900 rounded-xl border border-slate-700 animate-fade-in">
-                     <div className="flex justify-between items-center mb-2">
-                         <span className="text-xs text-slate-400 uppercase tracking-wide">Category</span>
-                         <span className={`text-xs font-bold px-2 py-0.5 rounded ${analysisResult.score > 70 ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
-                             {analysisResult.category}
-                         </span>
-                     </div>
-                     <div className="flex justify-between items-center mb-3">
-                         <span className="text-xs text-slate-400 uppercase tracking-wide">Confidence Score</span>
-                         <div className="flex items-center">
-                             <div className="h-2 w-24 bg-slate-800 rounded-full mr-2 overflow-hidden">
-                                 <div 
-                                    className={`h-full ${analysisResult.score > 70 ? 'bg-red-500' : 'bg-green-500'}`} 
-                                    style={{width: `${analysisResult.score}%`}}
-                                 ></div>
-                             </div>
-                             <span className="text-sm font-mono font-bold text-white">{analysisResult.score}%</span>
-                         </div>
-                     </div>
-                     <p className="text-xs text-slate-300 italic border-t border-slate-800 pt-2 mt-2">
-                         "{analysisResult.reasoning}"
-                     </p>
+                 <div className="mt-4 p-4 bg-slate-900 rounded-xl border border-slate-700 animate-fade-in text-slate-300 text-sm">
+                     {analysisResult}
                  </div>
              )}
         </div>
