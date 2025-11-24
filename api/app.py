@@ -322,7 +322,8 @@ def stats_endpoint(
     actionable = [event for event in events if event.action not in ACTION_IGNORE]
     blocked = sum(1 for event in actionable if event.action in ACTION_BLOCKED)
     warned = sum(1 for event in actionable if event.action in ACTION_WARNED)
-    deleted = len(actionable)
+    # hitung deleted hanya untuk event dengan action "deleted"
+    deleted = sum(1 for event in actionable if event.action == "deleted")
     offenders = (
         db.query(ModerationEvent.username, func.count(ModerationEvent.id).label("cnt"))
         .filter(
