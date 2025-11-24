@@ -13,6 +13,7 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState<number | null>(null);
   const [filter, setFilter] = useState<"all" | "pending" | "hate" | "non-hate">("pending");
+  const [showFilters, setShowFilters] = useState(false);
 
   const notify = (msg: string) => {
     if (typeof window !== "undefined") alert(msg);
@@ -22,9 +23,8 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
     setLoading(true);
     try {
       const data = await fetchEvents(chatId, 30, 0);
-      // prioritas: yang belum diverifikasi manual
-      const pending = data.filter((e) => !e.manual_verified);
-      setItems(pending);
+      const sorted = [...data].sort((a, b) => Number(a.manual_verified) - Number(b.manual_verified));
+      setItems(sorted);
     } catch (err) {
       if (err instanceof HttpError) notify(err.message);
     } finally {
@@ -48,7 +48,7 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
     setVerifying(id);
     try {
       const updated = await verifyEvent(chatId, id, label);
-      setItems((prev) => prev.filter((i) => i.id !== updated.id));
+      setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, ...updated } : i)));
     } catch (err) {
       if (err instanceof HttpError) notify(err.message);
     } finally {
@@ -81,24 +81,40 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
                 <p className="text-sm text-slate-400">Review flagged messages</p>
             </div>
             <div className="flex items-center space-x-2">
-              {(["pending", "hate", "non-hate", "all"] as const).map((key) => (
-                <button
-                  key={key}
-                  onClick={() => setFilter(key)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                    filter === key
-                      ? "border-primary-400 text-white bg-slate-800"
-                      : "border-slate-700 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {key === "pending" ? "Pending" : key === "hate" ? "Hate" : key === "non-hate" ? "Non-hate" : "All"}
-                </button>
-              ))}
-              <button className="text-neon-blue hover:text-white" onClick={load} title="Refresh">
-                <Filter size={20} />
+              <button
+                className="p-2 rounded-full border border-slate-700 text-slate-200 hover:text-white hover:border-primary-400 transition"
+                onClick={() => setShowFilters((prev) => !prev)}
+                title="Filter"
+              >
+                <Filter size={18} />
+              </button>
+              <button
+                className="p-2 rounded-full border border-slate-700 text-slate-200 hover:text-white hover:border-primary-400 transition"
+                onClick={load}
+                title="Refresh"
+              >
+                ↻
               </button>
             </div>
         </div>
+
+        {showFilters && (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {(["pending", "hate", "non-hate", "all"] as const).map((key) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  filter === key
+                    ? "border-primary-400 text-white bg-slate-800"
+                    : "border-slate-700 text-slate-400 hover:text-white"
+                }`}
+              >
+                {key === "pending" ? "Pending" : key === "hate" ? "Hate" : key === "non-hate" ? "Non-hate" : "All"}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="flex-1 relative">
             {loading && (
