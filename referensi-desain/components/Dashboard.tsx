@@ -121,8 +121,8 @@ export const Dashboard: React.FC<Props> = ({
                         className={`
                           w-2 h-2 rounded-full transition-all duration-300
                           ${g.status
-                            ? 'bg-neon-green shadow-[0_0_8px_3px_rgba(34,197,94,0.8)]'
-                            : 'bg-slate-500 shadow-[0_0_6px_2px_rgba(100,116,139,0.5)]'
+                            ? 'bg-[#22c55e] shadow-[0_0_10px_3px_rgba(34,197,94,0.9)]'
+                            : 'bg-slate-500 shadow-[0_0_4px_1px_rgba(100,116,139,0.5)]'
                           }
                         `}
                       ></div>
