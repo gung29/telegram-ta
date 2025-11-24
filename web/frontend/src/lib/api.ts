@@ -162,17 +162,23 @@ export const removeAdmin = (chatId: number, userId: number) =>
 export const fetchMembers = (chatId: number, status?: MemberStatus) =>
   baseFetch<MemberModeration[]>(`/api/members?${qs({ chat_id: chatId, ...(status ? { status } : {}) })}`);
 
-export const createMemberStatus = (
+export const upsertMemberModeration = (
   chatId: number,
-  payload: { user_id: number; username?: string; status: MemberStatus; duration_minutes?: number; reason?: string },
+  payload: {
+    user_id: number;
+    username?: string;
+    status: MemberStatus;
+    duration_minutes?: number;
+    reason?: string;
+  },
 ) =>
-  baseFetch(`/api/members?${qs({ chat_id: chatId })}`, {
+  baseFetch<MemberModeration>(`/api/members?${qs({ chat_id: chatId })}`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 
 export const deleteMemberStatus = (chatId: number, userId: number, status: MemberStatus) =>
-  baseFetch(`/api/members/${userId}?${qs({ chat_id: chatId, status })}`, {
+  baseFetch<void>(`/api/members/${userId}?${qs({ chat_id: chatId, status })}`, {
     method: "DELETE",
   });
 
