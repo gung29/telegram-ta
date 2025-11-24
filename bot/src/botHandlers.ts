@@ -702,7 +702,7 @@ export const registerHandlers = (bot: TelegramBot) => {
 
       let moderationAction: "muted" | "banned" = "muted";
       let muteDuration = severity >= 0.2 ? 45 : 20;
-      let moderationReason = severity >= 0.2 ? "Auto mute (tingkat tinggi)" : "Auto mute (pelanggaran berulang)";
+      let moderationReason = severity >= 0.2 ? "Auto mute" : "Auto mute (pelanggaran berulang)";
 
       if (rapidOffenses > 1) {
         muteDuration = Math.min(180, muteDuration + (rapidOffenses - 1) * 5);
@@ -718,7 +718,7 @@ export const registerHandlers = (bot: TelegramBot) => {
       // Jika seharusnya dimute, kita naikkan menjadi ban supaya moderasi tetap jalan.
       if (msg.chat.type === "group" && moderationAction === "muted") {
         moderationAction = "banned";
-        moderationReason = `${moderationReason} (grup biasa → fallback ban)`;
+        moderationReason = `${moderationReason} · (grup biasa tidak mendukung mute)`;
       }
 
       if (moderationAction === "banned") {
