@@ -661,6 +661,19 @@ export const registerHandlers = (bot: TelegramBot) => {
       }
       const severity = prediction.prob_hate - threshold;
 
+      logger.info(
+        {
+          chatId: msg.chat.id,
+          userId: msg.from.id,
+          username: msg.from.username,
+          dailyOffenses,
+          warnLimit: WARN_LIMIT_PER_DAY,
+          prob: prediction.prob_hate,
+          threshold,
+        },
+        "moderation_decision",
+      );
+
       // Warn sampai WARN_LIMIT_PER_DAY kali, setelah itu moderasi (mute/ban)
       if (dailyOffenses <= WARN_LIMIT_PER_DAY) {
         const warningReason = `Peringatan ke-${dailyOffenses} hari ini (batas ${WARN_LIMIT_PER_DAY})`;
