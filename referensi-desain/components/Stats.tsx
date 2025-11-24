@@ -35,46 +35,64 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
     load();
   }, [chatId, windowKey]);
 
+  const aggregated = useMemo(() => {
+    let warn = 0;
+    let deleted = 0;
+    let blocked = 0;
+    if (activity?.points?.length) {
+      activity.points.forEach((p) => {
+        warn += p.warned ?? 0;
+        deleted += p.deleted ?? 0;
+        blocked += p.blocked ?? 0;
+      });
+    } else if (stats) {
+      warn = stats.warned ?? 0;
+      deleted = stats.deleted ?? 0;
+      blocked = stats.blocked ?? 0;
+    }
+    return { warn, deleted, blocked, total: warn + deleted + blocked };
+  }, [activity, stats]);
+
   const chartData = useMemo(() => {
     if (!activity) return [];
     return activity.points.map((p) => {
       const label = dayjs(p.date).isValid() ? dayjs(p.date).format(windowKey === "24h" ? "DD MMM HH:mm" : "DD MMM") : "";
+      const warn = p.warned ?? 0;
+      const del = p.deleted ?? 0;
+      const block = p.blocked ?? 0;
       return {
         name: label,
-        total: p.deleted,
-        warn: p.warned,
-        block: p.blocked,
+        total: warn + del + block,
+        warn,
+        block,
       };
     });
   }, [activity, windowKey]);
 
   const pieData = useMemo(() => {
-    if (!stats) return [];
     const items = [
-      { name: "Warned", value: stats.warned, color: "#f59e0b" },
-      { name: "Blocked", value: stats.blocked, color: "#ef4444" },
-      { name: "Deleted", value: stats.deleted, color: "#6366f1" },
+      { name: "Warned", value: aggregated.warn, color: "#f59e0b" },
+      { name: "Blocked", value: aggregated.blocked, color: "#ef4444" },
+      { name: "Deleted", value: aggregated.deleted, color: "#6366f1" },
     ].filter((d) => d.value > 0);
     return items.length ? items : [{ name: "No data", value: 1, color: "#475569" }];
-  }, [stats]);
+  }, [aggregated]);
 
   const actionDistribution = useMemo(() => {
-    if (!stats) return [];
     return [
-      { name: "Deleted", value: stats.deleted, color: "#6366f1" },
-      { name: "Warned", value: stats.warned, color: "#f59e0b" },
-      { name: "Blocked", value: stats.blocked, color: "#ef4444" },
+      { name: "Deleted", value: aggregated.deleted, color: "#6366f1" },
+      { name: "Warned", value: aggregated.warn, color: "#f59e0b" },
+      { name: "Blocked", value: aggregated.blocked, color: "#ef4444" },
     ];
-  }, [stats]);
+  }, [aggregated]);
 
   const totals = useMemo(() => {
-    if (!stats) return { total: 0, avgPerDay: 0, peak: 0 };
-    const total = stats.total_events;
     const days = windowKey === "24h" ? 1 : windowKey === "7d" ? 7 : 30;
+    const total = aggregated.total || stats?.total_events || 0;
     const avgPerDay = days ? Math.round(total / days) : total;
     const peak = chartData.length ? Math.max(...chartData.map((d) => d.total ?? 0)) : 0;
     return { total, avgPerDay, peak };
-  }, [stats, chartData, windowKey]);
+  }, [aggregated, stats, chartData, windowKey]);
 
   const topOffenders = useMemo(() => {
     const list = stats?.top_offenders ?? [];
