@@ -778,7 +778,7 @@ const getNextModerationStep = (priorMuteCount: number): NextModeration => {
         moderationReason = `${moderationReason} · (grup biasa tidak mendukung mute, dinaikkan ke ban)`;
       }
 
-            if (moderationAction === "banned") {
+     if (moderationAction === "banned") {
         await applyBan(bot, msg.chat.id, msg.from.id, msg.from.username, moderationReason);
       } else {
         const muteCount = await incrementMuteCount(msg.chat.id, msg.from.id);
