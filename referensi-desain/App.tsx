@@ -272,7 +272,7 @@ function App() {
       case View.LOGS:
         return <Logs />;
       case View.VERIFY:
-        return <Verification />;
+        return chatId ? <Verification chatId={chatId} /> : <div className="p-4 text-slate-400">Pilih grup terlebih dahulu.</div>;
       case View.ADMIN:
         return <AdminPanel />;
       default:

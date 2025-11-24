@@ -1,27 +1,61 @@
-import React, { useState } from 'react';
-import { VerificationItem } from '../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import { Check, X, Filter } from 'lucide-react';
+import { fetchEvents, verifyEvent, EventEntry, HttpError } from "../lib/api";
 
-const initialItems: VerificationItem[] = [
-    { id: '1', user: 'Ahmad S.', timeAgo: 'Just now', content: 'Ini contoh pesan yang mengandung ujaran kebencian, harus ditindak tegas.', score: 92, avatarId: 88 },
-    { id: '2', user: 'Budi P.', timeAgo: '2h ago', content: 'Selamat pagi, semoga harimu menyenangkan.', score: 15, avatarId: 44 },
-    { id: '3', user: 'Citra D.', timeAgo: 'Yesterday', content: 'Jangan percaya orang-orang itu, mereka pembohong besar dan penipu.', score: 88, avatarId: 22 },
-];
+dayjs.extend(relativeTime);
 
-export const Verification: React.FC = () => {
-  const [items, setItems] = useState<VerificationItem[]>(initialItems);
+type Props = { chatId: number };
 
-  const handleDecision = (id: string, isHate: boolean) => {
-    // Simulate removing card
-    const element = document.getElementById(`card-${id}`);
-    if (element) {
-        element.style.transform = isHate ? 'translateX(100vw)' : 'translateX(-100vw)';
-        element.style.opacity = '0';
-    }
-    setTimeout(() => {
-        setItems(prev => prev.filter(i => i.id !== id));
-    }, 300);
+export const Verification: React.FC<Props> = ({ chatId }) => {
+  const [items, setItems] = useState<EventEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState<number | null>(null);
+
+  const notify = (msg: string) => {
+    if (typeof window !== "undefined") alert(msg);
   };
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchEvents(chatId, 30, 0);
+      // prioritas: yang belum diverifikasi manual
+      const pending = data.filter((e) => !e.manual_verified);
+      setItems(pending);
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, [chatId]);
+
+  const formatTime = (iso?: string) => {
+    if (!iso) return "";
+    const d = dayjs(iso);
+    if (!d.isValid()) return "";
+    const now = dayjs();
+    return now.diff(d, "hour") < 24 ? d.from(now) : d.format("DD MMM");
+  };
+
+  const handleDecision = async (id: number, label: "hate" | "non-hate") => {
+    setVerifying(id);
+    try {
+      const updated = await verifyEvent(chatId, id, label);
+      setItems((prev) => prev.filter((i) => i.id !== updated.id));
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+    } finally {
+      setVerifying(null);
+    }
+  };
+
+  const pendingCount = useMemo(() => items.length, [items]);
 
   return (
     <div className="p-4 pb-24 h-full flex flex-col animate-fade-in relative">
@@ -36,7 +70,12 @@ export const Verification: React.FC = () => {
         </div>
 
         <div className="flex-1 relative">
-            {items.length === 0 ? (
+            {loading && (
+              <div className="absolute inset-0 flex items-center justify-center text-slate-400">
+                Memuat data...
+              </div>
+            )}
+            {!loading && items.length === 0 ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
                     <Check size={48} className="mb-4 text-green-500 opacity-50" />
                     <p>All caught up! No pending reviews.</p>
@@ -51,36 +90,38 @@ export const Verification: React.FC = () => {
                         >
                             <div className="flex items-center space-x-3 mb-4">
                                 <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden">
-                                    <img src={`https://picsum.photos/40/40?random=${item.avatarId}`} alt="Avatar" />
+                                    <img src={`https://picsum.photos/40/40?random=${item.user_id ?? item.id}`} alt="Avatar" />
                                 </div>
                                 <div>
-                                    <h4 className="text-white font-bold">{item.user}</h4>
-                                    <span className="text-xs text-slate-400">{item.timeAgo}</span>
+                                    <h4 className="text-white font-bold">{item.username ?? `User ${item.user_id ?? "-"}`}</h4>
+                                    <span className="text-xs text-slate-400">{formatTime(item.created_at)}</span>
                                 </div>
                                 <div className="ml-auto text-right">
                                     <div className="text-[10px] text-slate-500 uppercase tracking-wide">Confidence</div>
-                                    <div className={`text-xl font-mono font-bold ${item.score > 80 ? 'text-red-500' : 'text-orange-500'}`}>
-                                        {item.score}%
+                                    <div className={`text-xl font-mono font-bold ${ (item.prob_hate ?? 0) > 0.8 ? 'text-red-500' : 'text-orange-500'}`}>
+                                        {Math.round((item.prob_hate ?? 0) * 100)}%
                                     </div>
                                 </div>
                             </div>
 
                             <div className="bg-slate-900/50 p-4 rounded-xl mb-6 border border-slate-800">
                                 <p className="text-slate-200 text-sm leading-relaxed">
-                                    "{item.content}"
+                                    "{item.text ?? item.reason ?? 'Tidak ada konten'}"
                                 </p>
                             </div>
 
                             <div className="flex space-x-3">
                                 <button 
-                                    onClick={() => handleDecision(item.id, false)}
-                                    className="flex-1 py-3 rounded-xl bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500 hover:text-white transition-all font-bold flex items-center justify-center"
+                                    disabled={verifying === item.id}
+                                    onClick={() => handleDecision(item.id, "non-hate")}
+                                    className={`flex-1 py-3 rounded-xl bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500 hover:text-white transition-all font-bold flex items-center justify-center ${verifying === item.id ? 'opacity-70 cursor-not-allowed' : ''}`}
                                 >
                                     <Check size={18} className="mr-2" /> Mark Safe
                                 </button>
                                 <button 
-                                    onClick={() => handleDecision(item.id, true)}
-                                    className="flex-1 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all font-bold flex items-center justify-center"
+                                    disabled={verifying === item.id}
+                                    onClick={() => handleDecision(item.id, "hate")}
+                                    className={`flex-1 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all font-bold flex items-center justify-center ${verifying === item.id ? 'opacity-70 cursor-not-allowed' : ''}`}
                                 >
                                     <X size={18} className="mr-2" /> Hate Speech
                                 </button>
