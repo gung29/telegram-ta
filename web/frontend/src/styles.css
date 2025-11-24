@@ -99,65 +99,110 @@ textarea {
 }
 
 .content.menu-open .top-nav {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .status-group {
+  position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: 14px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: radial-gradient(circle at 25% 10%, rgba(0, 224, 255, 0.14), transparent 50%),
+              linear-gradient(160deg, rgba(10, 14, 26, 0.96), rgba(12, 20, 36, 0.9));
+  box-shadow: 0 24px 50px -28px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.status-group::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 6px;
+  width: 120px;
+  height: 120px;
+  border: 2px solid rgba(148, 163, 184, 0.08);
+  border-radius: 28px;
+  transform: rotate(8deg);
+}
+
+.status-group::before {
+  content: "–";
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5f5;
+  font-size: 18px;
+  box-shadow: 0 10px 20px -14px rgba(0, 0, 0, 0.6);
 }
 
 .status-card {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: 18px 22px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--glass-border);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.6));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3),
-              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  gap: 12px;
+  padding: 8px 10px 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.status-card p {
+  color: #cfd8e3;
+}
+
+.status-card strong {
+  font-size: 1.05rem;
+}
+
+.status-card p {
+  margin: 2px 0 0;
 }
 
 .status-controls {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: 10px;
+  align-items: stretch;
 }
 
 .status-toggle {
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--glass-border);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.7));
-  padding: 12px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(12, 18, 32, 0.9), rgba(14, 23, 42, 0.8));
+  padding: 12px 14px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 12px;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.2),
-              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 22px -16px rgba(0, 0, 0, 0.45);
   transition: all 0.2s ease;
 }
 
 .status-toggle:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.3),
-              inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 22px -16px rgba(0, 0, 0, 0.5);
 }
 
 .status-toggle .bullet {
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--warning);
-  box-shadow: 0 0 12px rgba(249, 115, 22, 0.6);
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
   transition: all 0.3s ease;
 }
 
@@ -171,9 +216,13 @@ textarea {
 }
 
 .status-buttons {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-buttons .btn {
+  width: 100%;
 }
 
 .sidebar-toggle {
@@ -380,33 +429,34 @@ textarea {
 }
 
 .toggle {
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--glass-border);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.7));
-  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(12, 18, 32, 0.9), rgba(14, 23, 42, 0.8));
+  padding: 12px 14px;
   display: inline-flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  width: 100%;
+  gap: 10px;
+  width: auto;
+  min-width: 180px;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.2),
-              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 22px -16px rgba(0, 0, 0, 0.45);
   transition: all 0.2s ease;
+  font-weight: 600;
 }
 
 .toggle:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.3),
-              inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 22px -16px rgba(0, 0, 0, 0.5);
 }
 
 .toggle .bullet {
-  width: 22px;
-  height: 22px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: var(--warning);
-  box-shadow: 0 0 10px rgba(249, 115, 22, 0.6);
+  background: var(--success);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
   transition: all 0.3s ease;
 }
 
@@ -419,52 +469,64 @@ textarea {
   box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
 }
 
+.toggle.off .bullet {
+  background: var(--warning);
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.6);
+}
+
 .group-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: 14px;
+  padding: 18px;
 }
 
 .group-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: 14px;
 }
 
 .group-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: 12px;
   max-height: none;
   overflow: visible;
 }
 
 .group-chip {
-  border-radius: var(--radius-md);
-  border: 1px solid var(--glass-border);
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 16px 18px;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.6));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: linear-gradient(145deg, rgba(10, 14, 26, 0.95), rgba(12, 19, 34, 0.9));
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.2),
-              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 12px 26px -18px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.02);
   transition: all 0.2s ease;
 }
 
 .group-chip:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 16px -2px rgba(0, 0, 0, 0.3),
-              inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 30px -14px rgba(0, 0, 0, 0.55);
+}
+
+.group-chip strong {
+  font-size: 1.05rem;
+}
+
+.group-chip small,
+.group-chip p {
+  color: #94a3b8;
 }
 
 .group-chip.active {
-  border-color: var(--accent-1);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(56, 189, 248, 0.15));
-  box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.3),
-              inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-color: rgba(0, 224, 255, 0.6);
+  background: radial-gradient(circle at 20% 20%, rgba(0, 224, 255, 0.12), transparent 45%),
+              linear-gradient(145deg, rgba(10, 14, 26, 0.95), rgba(12, 19, 34, 0.9));
+  box-shadow: 0 12px 34px -16px rgba(0, 224, 255, 0.35);
 }
 
 .group-controls {
@@ -2014,4 +2076,3 @@ body::after {
 .loading-overlay {
   background: radial-gradient(circle at 50% 30%, rgba(0, 224, 255, 0.08), transparent 30%), rgba(2, 6, 23, 0.9);
 }
-
