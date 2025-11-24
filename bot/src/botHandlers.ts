@@ -128,6 +128,7 @@ const defaultPermissions = {
 } as TelegramBot.ChatPermissions;
 
 const LOCAL_TIMEZONE = "Asia/Singapore";
+const WARN_LIMIT_PER_DAY = 3;
 
 const offenseKey = (chatId: number, userId: number) => `${chatId}:${userId}`;
 
@@ -647,9 +648,9 @@ export const registerHandlers = (bot: TelegramBot) => {
       const dailyOffenses = await incrementDailyOffense(msg.chat.id, msg.from.id);
       const severity = prediction.prob_hate - threshold;
 
-      // Warn sampai 3 kali, mulai pelanggaran ke-4 langsung moderasi
-      if (dailyOffenses <= 3) {
-        const warningReason = `Peringatan ke-${dailyOffenses} hari ini (batas 3)`;
+      // Warn sampai WARN_LIMIT_PER_DAY kali, setelah itu moderasi (mute/ban)
+      if (dailyOffenses <= WARN_LIMIT_PER_DAY) {
+        const warningReason = `Peringatan ke-${dailyOffenses} hari ini (batas ${WARN_LIMIT_PER_DAY})`;
         await persistEvent({
           ...baseEvent,
           action: "warned",
