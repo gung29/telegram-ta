@@ -57,6 +57,7 @@ textarea {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  width: 100%;
   max-width: 520px;
   margin: 0 auto;
   padding: 18px 0 120px;
@@ -786,7 +787,7 @@ textarea {
   border-radius: 14px;
   box-shadow: 0 12px 24px -18px rgba(0, 0, 0, 0.6);
   display: grid;
-  grid-template-columns: 1.2fr 0.9fr 0.9fr 1.4fr 0.8fr 1fr;
+  grid-template-columns: 1.1fr 0.9fr 0.8fr 1.3fr 0.7fr 0.6fr;
   align-items: center;
   padding: 6px 4px;
 }
@@ -1341,29 +1342,36 @@ textarea.input:focus {
 
 .sidebar {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: 0;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 480px;
-  padding: 8px 20px 10px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.96));
+  margin: 0 auto;
+  max-width: 520px;
+  padding: 10px 20px 12px;
+  background: linear-gradient(180deg, rgba(10, 14, 26, 0.98), rgba(10, 14, 26, 0.94));
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-radius: 20px 20px 0 0;
-  border-top: 1px solid var(--glass-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   border-right: none;
   border-left: none;
   opacity: 1;
   pointer-events: auto;
-  z-index: 60;
+  z-index: 90;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
+.sidebar.panel {
+  padding: 10px 20px 12px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
 .sidebar.open {
-  transform: translateX(-50%);
+  transform: none;
 }
 
 .sidebar .brand {
@@ -1426,6 +1434,10 @@ textarea.input:focus {
 .sidebar .nav-item:nth-child(3)::after { content: "🧾"; }
 .sidebar .nav-item:nth-child(4)::after { content: "🛡"; }
 .sidebar .nav-item:nth-child(5)::after { content: "✅"; }
+
+.sidebar .nav-item span {
+  font-size: 11px;
+}
 
 .sidebar .nav-item.active::before {
   background: radial-gradient(circle at 30% 0%, rgba(0, 243, 255, 0.6), rgba(99, 102, 241, 0.9));
