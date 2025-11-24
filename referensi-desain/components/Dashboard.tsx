@@ -13,6 +13,7 @@ type Props = {
   onRefresh: () => void;
   groups: GroupItem[];
   onSelectGroup: (id: number) => void;
+  onToggleGroupStatus: (id: number, currentStatus: boolean) => void;
   metrics: Array<{ title: string; value: number; subtitle: string }>;
   liveActivity: LiveItem[];
 };
@@ -25,6 +26,7 @@ export const Dashboard: React.FC<Props> = ({
   onRefresh,
   groups,
   onSelectGroup,
+  onToggleGroupStatus,
   metrics,
   liveActivity,
 }) => {
@@ -63,8 +65,19 @@ export const Dashboard: React.FC<Props> = ({
                 <label className="flex items-center cursor-pointer">
                     <div className="relative">
                         <input type="checkbox" className="sr-only" checked={!manualMode} onChange={onToggleMode} />
-                        <div className={`block w-14 h-8 rounded-full transition-colors duration-300 ${manualMode ? 'bg-orange-900' : 'bg-slate-700'}`}></div>
-                        <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform duration-300 ${!manualMode ? 'translate-x-6 bg-green-400' : ''}`}></div>
+                        <div className="relative inline-block">
+                        {/* Background */}
+                        <div
+                            className={`block w-14 h-8 rounded-full transition-colors duration-300 
+                                        ${manualMode ? 'bg-green-700' : 'bg-slate-700'}`}
+                        ></div>
+
+                        {/* Dot */}
+                        <div
+                            className={`dot absolute left-1 top-1 w-6 h-6 rounded-full transition-all duration-300 
+                                        ${manualMode ? 'translate-x-6 bg-green-400' : 'translate-x-0 bg-white'}`}
+                        ></div>
+                    </div>
                     </div>
                     <span className="ml-3 text-sm font-medium text-slate-300">
                         {manualMode ? 'Realtime OFF' : 'Realtime ON'}
@@ -94,16 +107,29 @@ export const Dashboard: React.FC<Props> = ({
                 >
                   <div className="flex justify-between items-start mb-2">
                       <h4 className="font-bold text-white truncate pr-2">{g.name}</h4>
-                      <div className={`w-2 h-2 rounded-full ${g.status ? 'bg-neon-green' : 'bg-slate-500'}`}></div>
+                      <div className={`w-2 h-2 rounded-full ${g.status ? 'bg-neon-green shadow-[0_0_10px_#22c55e]' : 'bg-slate-500'}`}></div>
                   </div>
                   <p className="text-xs text-slate-500 font-mono mb-3">ID: {g.cid}</p>
                   <div className="flex items-center justify-between">
-                      <span className={`text-xs ${g.status ? 'text-neon-green' : 'text-slate-500'}`}>
+                      <span className={`text-xs font-medium ${g.status ? 'text-neon-green' : 'text-slate-500'}`}>
                           {g.status ? 'Active' : 'Paused'}
                       </span>
-                       <div className={`w-8 h-4 rounded-full relative ${g.status ? 'bg-primary-600' : 'bg-slate-700'}`}>
-                           <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${g.status ? 'translate-x-4' : ''}`}></div>
-                       </div>
+                       <button
+                         type="button"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           onToggleGroupStatus(g.id, g.status);
+                         }}
+                         className={`w-10 h-5 rounded-full relative transition-colors ${
+                           g.status ? 'bg-purple-500' : 'bg-slate-700'
+                         }`}
+                       >
+                         <span
+                           className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform ${
+                             g.status ? 'translate-x-4' : ''
+                           }`}
+                         />
+                       </button>
                   </div>
                 </button>
             ))}
