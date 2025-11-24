@@ -13,19 +13,25 @@ import {
   MemberModeration,
   UserActionSummary,
   HttpError,
+  upsertMemberModeration,
 } from "../lib/api";
 
 type Props = { chatId: number };
 
 type PenaltyKind = "muted" | "banned";
 
-export const expireMemberStatus = (chatId, userId, status) =>
-  upsertMemberModeration(chatId, {
+const expireMemberStatus = (
+  chatId: number,
+  userId: number,
+  status: PenaltyKind, // atau MemberStatus
+) => {
+  return upsertMemberModeration(chatId, {
     user_id: userId,
     status,
-    reason: "Manual release",
-    duration_minutes: 0, // backend → expires_at = now
+    reason: "Manual release via dashboard",
+    duration_minutes: 0, // backend akan set expires_at = now
   });
+};
 
 
 export const AdminPanel: React.FC<Props> = ({ chatId }) => {
@@ -138,28 +144,28 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
   };
 
   const handleUnmute = async (userId: number) => {
-    setPendingAction(`unmute-${userId}`);
-    try {
-      await deleteMemberStatus(chatId, userId, "muted");
-      await load();
-    } catch (err) {
-      if (err instanceof HttpError) notify(err.message);
-    } finally {
-      setPendingAction(null);
-    }
-  };
+  setPendingAction(`unmute-${userId}`);
+  try {
+    await expireMemberStatus(chatId, userId, "muted");
+    await load();
+  } catch (err) {
+    if (err instanceof HttpError) notify(err.message);
+  } finally {
+    setPendingAction(null);
+  }
+};
 
-  const handleUnban = async (userId: number) => {
-    setPendingAction(`unban-${userId}`);
-    try {
-      await deleteMemberStatus(chatId, userId, "banned");
-      await load();
-    } catch (err) {
-      if (err instanceof HttpError) notify(err.message);
-    } finally {
-      setPendingAction(null);
-    }
-  };
+const handleUnban = async (userId: number) => {
+  setPendingAction(`unban-${userId}`);
+  try {
+    await expireMemberStatus(chatId, userId, "banned");
+    await load();
+  } catch (err) {
+    if (err instanceof HttpError) notify(err.message);
+  } finally {
+    setPendingAction(null);
+  }
+};
 
   const penalties = useMemo(() => {
     const actionsMap = new Map<number, UserActionSummary>();

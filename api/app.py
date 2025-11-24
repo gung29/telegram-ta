@@ -449,8 +449,12 @@ def upsert_member_moderation(
     _require_group_chat(chat_id)
     _get_or_create_settings(db, chat_id)
     expires_at = None
-    if payload.duration_minutes:
-        expires_at = now_local() + timedelta(minutes=payload.duration_minutes)
+    if payload.duration_minutes is not None:
+        if payload.duration_minutes <= 0:
+            # 0 atau negatif = segera kadaluarsa (dipakai untuk manual unmute/unban)
+            expires_at = now_local()
+        else:
+            expires_at = now_local() + timedelta(minutes=payload.duration_minutes)
     record = (
         db.query(MemberModeration)
         .filter(MemberModeration.chat_id == chat_id, MemberModeration.user_id == payload.user_id, MemberModeration.status == payload.status)

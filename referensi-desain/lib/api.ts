@@ -171,6 +171,15 @@ export const createMemberStatus = (
     body: JSON.stringify(payload),
   });
 
+  export const upsertMemberModeration = (
+  chatId: number,
+  payload: { user_id: number; username?: string; status: MemberStatus; duration_minutes?: number; reason?: string },
+) =>
+  baseFetch(`/api/members?${qs({ chat_id: chatId })}`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
 export const deleteMemberStatus = (chatId: number, userId: number, status: MemberStatus) =>
   baseFetch(`/api/members/${userId}?${qs({ chat_id: chatId, status })}`, {
     method: "DELETE",
