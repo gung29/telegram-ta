@@ -13,25 +13,11 @@ import {
   MemberModeration,
   UserActionSummary,
   HttpError,
-  upsertMemberModeration,
 } from "../lib/api";
 
 type Props = { chatId: number };
 
 type PenaltyKind = "muted" | "banned";
-
-const expireMemberStatus = (
-  chatId: number,
-  userId: number,
-  status: PenaltyKind, // atau MemberStatus
-) => {
-  return upsertMemberModeration(chatId, {
-    user_id: userId,
-    status,
-    reason: "Manual release via dashboard",
-    duration_minutes: 0, // backend akan set expires_at = now
-  });
-};
 
 
 export const AdminPanel: React.FC<Props> = ({ chatId }) => {
@@ -146,7 +132,7 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
   const handleUnmute = async (userId: number) => {
   setPendingAction(`unmute-${userId}`);
   try {
-    await expireMemberStatus(chatId, userId, "muted");
+    await deleteMemberStatus(chatId, userId, "muted"); // 👈 pakai DELETE
     await load();
   } catch (err) {
     if (err instanceof HttpError) notify(err.message);
@@ -158,7 +144,7 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
 const handleUnban = async (userId: number) => {
   setPendingAction(`unban-${userId}`);
   try {
-    await expireMemberStatus(chatId, userId, "banned");
+    await deleteMemberStatus(chatId, userId, "banned"); // 👈 pakai DELETE
     await load();
   } catch (err) {
     if (err instanceof HttpError) notify(err.message);
@@ -166,6 +152,7 @@ const handleUnban = async (userId: number) => {
     setPendingAction(null);
   }
 };
+
 
   const penalties = useMemo(() => {
     const actionsMap = new Map<number, UserActionSummary>();
