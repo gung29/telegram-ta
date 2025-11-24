@@ -323,27 +323,34 @@ const applyBan = async (
 
 
 const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration) => {
-  try {
-    await bot.restrictChatMember(chatId, member.user_id, {
-      permissions: defaultPermissions,          // ⬅️ semua can_send_* = true
-      use_independent_chat_permissions: true,
-      until_date: 0,                            // ⬅️ unmute permanen, sama kayak contoh
-    } as any);
+  logger.info({ chatId, userId: member.user_id }, "Attempting to UNMUTE user");
 
-    logger.info(
-      { chatId, userId: member.user_id },
-      "User unmuted via releaseMuteIfExpired",
-    );
+  try {
+    await bot.restrictChatMember(chatId, userId, {
+    permissions: {
+      can_send_messages: true,
+      can_send_media_messages: true,
+      can_send_photos: true,
+      can_send_videos: true,
+      can_send_audios: true,
+      can_send_documents: true,
+      can_send_other_messages: true,
+      can_add_web_page_previews: true,
+    },
+    use_independent_chat_permissions: true,
+    until_date: 0
+  });
+
+    logger.info({ chatId, userId: member.user_id }, "User successfully unmuted");
 
     await removeMemberModeration(chatId, member.user_id, member.status);
     clearManualStatus(chatId, member.user_id);
-  } catch (error: any) {
-    logger.warn(
-      { err: error, chatId, userId: member.user_id },
-      "Error unmuting user in releaseMuteIfExpired",
-    );
+
+  } catch (err) {
+    logger.error({ err, chatId, userId: member.user_id }, "FAILED to unmute user");
   }
 };
+
 
 const releaseBanIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration) => {
   await bot.unbanChatMember(chatId, member.user_id, { only_if_banned: true });
@@ -515,6 +522,7 @@ export const registerHandlers = (bot: TelegramBot) => {
     try {
       const groups = await fetchGroups(); // /admin/groups di core API
       for (const group of groups) {
+        logger.info("Running enforceManualStatuses...");
         await enforceManualStatuses(bot, group.chat_id);
       }
     } catch (err) {
