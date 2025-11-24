@@ -231,21 +231,32 @@ const applyMute = async (
   });
 };
 
-const applyBan = async (
+const applyMute = async (
   bot: TelegramBot,
   chatId: number,
   userId: number,
   username: string | undefined,
+  durationMinutes = 10,
   reason = "Automatic moderation",
+  nowSeconds?: number, // 👈 tambahan
 ) => {
-  await bot.banChatMember(chatId, userId);
+  const base = typeof nowSeconds === "number" ? nowSeconds : Math.floor(Date.now() / 1000);
+  const until = base + durationMinutes * 60;
+
+  await bot.restrictChatMember(chatId, userId, {
+    permissions: mutePermissions,
+    until_date: until,
+  });
+
   await upsertMemberModeration(chatId, {
     user_id: userId,
     username,
-    status: "banned",
+    status: "muted",
+    duration_minutes: durationMinutes,
     reason,
   });
 };
+
 
 const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration) => {
   await bot.restrictChatMember(chatId, member.user_id, { permissions: defaultPermissions });
@@ -767,30 +778,7 @@ const getNextModerationStep = (priorMuteCount: number): NextModeration => {
         moderationReason = `${moderationReason} · (grup biasa tidak mendukung mute, dinaikkan ke ban)`;
       }
 
-      if (moderationAction === "banned") {
-        await applyBan(bot, msg.chat.id, msg.from.id, msg.from.username, moderationReason);
-      } else {
-        const muteCount = await incrementMuteCount(msg.chat.id, msg.from.id);
-        moderationReason = `${moderationReason} · mute ke-${muteCount}`;
-        await applyMute(
-          bot,
-          msg.chat.id,
-          msg.from.id,
-          msg.from.username,
-          muteDuration ?? 30,
-          moderationReason,
-        );
-      }
-
-
-      // Di grup biasa (bukan supergroup), Telegram tidak mengizinkan restrictChatMember.
-      // Jika seharusnya dimute, kita naikkan menjadi ban supaya moderasi tetap jalan.
-      if (msg.chat.type === "group" && moderationAction === "muted") {
-        moderationAction = "banned";
-        moderationReason = `${moderationReason} · (grup biasa tidak mendukung mute)`;
-      }
-
-      if (moderationAction === "banned") {
+            if (moderationAction === "banned") {
         await applyBan(bot, msg.chat.id, msg.from.id, msg.from.username, moderationReason);
       } else {
         const muteCount = await incrementMuteCount(msg.chat.id, msg.from.id);
@@ -802,7 +790,17 @@ const getNextModerationStep = (priorMuteCount: number): NextModeration => {
           msg.from.username,
           muteDuration,
           moderationReason,
+          msg.date, // 👈 pakai timestamp dari Telegram
         );
+      }
+
+
+
+      // Di grup biasa (bukan supergroup), Telegram tidak mengizinkan restrictChatMember.
+      // Jika seharusnya dimute, kita naikkan menjadi ban supaya moderasi tetap jalan.
+      if (msg.chat.type === "group" && moderationAction === "muted") {
+        moderationAction = "banned";
+        moderationReason = `${moderationReason} · (grup biasa tidak mendukung mute)`;
       }
 
       const notifyText = formatModerationMessage({
