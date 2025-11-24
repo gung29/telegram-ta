@@ -714,6 +714,13 @@ export const registerHandlers = (bot: TelegramBot) => {
         moderationReason = `Auto ban (telah dimute ${priorMuteCount}x)`;
       }
 
+      // Di grup biasa (bukan supergroup), Telegram tidak mengizinkan restrictChatMember.
+      // Jika seharusnya dimute, kita naikkan menjadi ban supaya moderasi tetap jalan.
+      if (msg.chat.type === "group" && moderationAction === "muted") {
+        moderationAction = "banned";
+        moderationReason = `${moderationReason} (grup biasa → fallback ban)`;
+      }
+
       if (moderationAction === "banned") {
         await applyBan(bot, msg.chat.id, msg.from.id, msg.from.username, moderationReason);
       } else {
