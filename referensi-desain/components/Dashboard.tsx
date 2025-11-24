@@ -3,7 +3,15 @@ import { RefreshCw, Shield, AlertTriangle, UserX, VolumeX } from 'lucide-react';
 
 type LiveItem = { id: number; badge: string; tone: "danger" | "warning" | "muted"; text: string; time?: string };
 type Metric = { title: string; value: number; subtitle: string; icon: any; color: string; bg: string };
-type GroupItem = { id: number; name: string; cid: string; active: boolean; status: boolean; lastActive: string };
+type GroupItem = {
+  id: number;
+  name: string;
+  cid: string;
+  active: boolean;
+  status: boolean;
+  lastActive: string;
+  groupType?: string;
+};
 type ModeSelection = "precision" | "balanced" | "recall" | "custom";
 
 type Props = {
@@ -148,7 +156,17 @@ export const Dashboard: React.FC<Props> = ({
                         `}
                       ></div>
                   </div>
-                  <p className="text-xs text-slate-500 font-mono mb-3">ID: {g.cid}</p>
+                  <p className="text-xs text-slate-500 font-mono">ID: {g.cid}</p>
+                  <p className="text-[10px] text-slate-500 mb-3">
+                    Type:{" "}
+                    <span className="uppercase tracking-wide">
+                      {g.groupType === "supergroup"
+                        ? "Supergroup"
+                        : g.groupType === "group"
+                        ? "Group"
+                        : g.groupType || "Unknown"}
+                    </span>
+                  </p>
                   <div className="flex items-center justify-between">
                       <span className={`text-xs font-medium ${g.status ? 'text-neon-green' : 'text-slate-500'}`}>
                           {g.status ? 'Active' : 'Paused'}

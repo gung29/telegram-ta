@@ -225,6 +225,7 @@ function App() {
     active: g.chat_id === chatId,
     status: g.enabled,
     lastActive: g.last_active,
+    groupType: g.group_type ?? undefined,
   }));
 
   const handleToggleGroupStatus = async (groupId: number, currentStatus: boolean) => {

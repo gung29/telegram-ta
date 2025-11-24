@@ -382,6 +382,45 @@ export const registerHandlers = (bot: TelegramBot) => {
     });
   }, 15_000);
 
+type NextModeration =
+  | { action: "muted"; durationMinutes: number; reason: string }
+  | { action: "banned"; reason: string };
+
+const getNextModerationStep = (priorMuteCount: number): NextModeration => {
+  // priorMuteCount = berapa kali sudah PERNAH dimute sebelumnya (dari backend)
+  switch (priorMuteCount) {
+    case 0:
+      return {
+        action: "muted",
+        durationMinutes: 10,
+        reason: "Auto mute (pelanggaran pertama, 10 menit)",
+      };
+    case 1:
+      return {
+        action: "muted",
+        durationMinutes: 30,
+        reason: "Auto mute (pelanggaran berulang, 30 menit)",
+      };
+    case 2:
+      return {
+        action: "muted",
+        durationMinutes: 60,
+        reason: "Auto mute (riwayat berat, 60 menit)",
+      };
+    case 3:
+      return {
+        action: "muted",
+        durationMinutes: 360,
+        reason: "Auto mute (riwayat berat, 6 jam)",
+      };
+    default:
+      return {
+        action: "banned",
+        reason: "Auto ban (riwayat pelanggaran sangat berat, melewati batas mute)",
+      };
+  }
+};
+
   bot.onText(/\/start/, async (msg: TelegramBot.Message) => {
     if (!msg.chat) return;
     const chatId = msg.chat.id;
@@ -707,19 +746,42 @@ export const registerHandlers = (bot: TelegramBot) => {
         return;
       }
 
-      let moderationAction: "muted" | "banned" = "muted";
-      let muteDuration = severity >= 0.2 ? 45 : 20;
-      let moderationReason = severity >= 0.2 ? "Auto mute" : "Auto mute (pelanggaran berulang)";
+            const priorMuteCount = await getMuteCount(msg.chat.id, msg.from.id);
+      const step = getNextModerationStep(priorMuteCount);
 
-      if (rapidOffenses > 1) {
-        muteDuration = Math.min(180, muteDuration + (rapidOffenses - 1) * 5);
+      let moderationAction: "muted" | "banned" = step.action;
+      let muteDuration: number | undefined =
+        step.action === "muted" ? step.durationMinutes : undefined;
+      let moderationReason = step.reason;
+
+      // Kalau pengguna spam cepat dalam 15 menit, tambahin durasi sedikit (kalau masih mute)
+      if (step.action === "muted" && rapidOffenses > 1 && muteDuration) {
+        muteDuration = Math.min(360, muteDuration + (rapidOffenses - 1) * 5);
+        moderationReason = `${moderationReason} · eskalasi karena spam cepat (${rapidOffenses} pelanggaran dalam 15 menit)`;
       }
 
-      const priorMuteCount = await getMuteCount(msg.chat.id, msg.from.id);
-      if (priorMuteCount >= 3) {
+      // Di grup biasa (bukan supergroup), Telegram tidak mengizinkan restrictChatMember.
+      // Jika seharusnya dimute, kita naikkan menjadi ban supaya moderasi tetap jalan.
+      if (msg.chat.type === "group" && moderationAction === "muted") {
         moderationAction = "banned";
-        moderationReason = `Auto ban (telah dimute ${priorMuteCount}x)`;
+        moderationReason = `${moderationReason} · (grup biasa tidak mendukung mute, dinaikkan ke ban)`;
       }
+
+      if (moderationAction === "banned") {
+        await applyBan(bot, msg.chat.id, msg.from.id, msg.from.username, moderationReason);
+      } else {
+        const muteCount = await incrementMuteCount(msg.chat.id, msg.from.id);
+        moderationReason = `${moderationReason} · mute ke-${muteCount}`;
+        await applyMute(
+          bot,
+          msg.chat.id,
+          msg.from.id,
+          msg.from.username,
+          muteDuration ?? 30,
+          moderationReason,
+        );
+      }
+
 
       // Di grup biasa (bukan supergroup), Telegram tidak mengizinkan restrictChatMember.
       // Jika seharusnya dimute, kita naikkan menjadi ban supaya moderasi tetap jalan.
