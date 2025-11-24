@@ -49,9 +49,20 @@ export const Dashboard: React.FC<Props> = ({
         <div className="relative z-10">
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${manualMode ? 'bg-orange-400 shadow-[0_0_8px_#fb923c]' : 'bg-neon-green shadow-[0_0_10px_#22c55e]'}`}></div>
-                    <h2 className={`text-lg font-bold tracking-wide ${manualMode ? 'text-orange-100' : 'text-neon-green'}`}>
-                        {manualMode ? 'Manual Mode' : 'Auto-Protection'}
+                    <div
+                      className={`w-3 h-3 rounded-full transition-all duration-300
+                        ${manualMode
+                          ? 'bg-orange-400 shadow-[0_0_6px_2px_rgba(251,146,60,0.8)]'
+                          : 'bg-green-400 shadow-[0_0_8px_3px_rgba(34,197,94,0.8)]'
+                        }`}
+                    ></div>
+
+                    <h2
+                      className={`text-lg font-bold tracking-wide transition-colors duration-300
+                        ${manualMode ? 'text-orange-100' : 'text-green-400'}
+                      `}
+                    >
+                      {manualMode ? 'Manual Mode' : 'Auto-Protection'}
                     </h2>
                 </div>
                 <span className="text-xs text-slate-400 font-mono">{lastUpdate}</span>
@@ -106,7 +117,15 @@ export const Dashboard: React.FC<Props> = ({
                 >
                   <div className="flex justify-between items-start mb-2">
                       <h4 className="font-bold text-white truncate pr-2">{g.name}</h4>
-                      <div className={`w-2 h-2 rounded-full ${g.status ? 'bg-neon-green shadow-[0_0_10px_#22c55e]' : 'bg-slate-500'}`}></div>
+                      <div
+                        className={`
+                          w-2 h-2 rounded-full transition-all duration-300
+                          ${g.status
+                            ? 'bg-neon-green shadow-[0_0_8px_3px_rgba(34,197,94,0.8)]'
+                            : 'bg-slate-500 shadow-[0_0_6px_2px_rgba(100,116,139,0.5)]'
+                          }
+                        `}
+                      ></div>
                   </div>
                   <p className="text-xs text-slate-500 font-mono mb-3">ID: {g.cid}</p>
                   <div className="flex items-center justify-between">
@@ -123,11 +142,12 @@ export const Dashboard: React.FC<Props> = ({
                            g.status ? 'bg-purple-500' : 'bg-slate-700'
                          }`}
                        >
-                         <span
-                          className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform ${
-                            g.status ? 'translate-x-4' : ''
-                          }`}
-                        />
+                         <div className="relative w-10 h-5 rounded-full bg-purple-500">
+                          <span
+                            className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform duration-200
+                              ${g.status ? 'translate-x-[1.375rem]' : 'translate-x-0'}`}
+                          />
+                        </div>
                        </button>
                   </div>
                 </button>
