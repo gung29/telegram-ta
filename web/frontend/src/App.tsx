@@ -44,6 +44,30 @@ import {
   BarElement,
 } from "chart.js";
 import { Line, Doughnut, Bar } from "react-chartjs-2";
+import { 
+  LayoutDashboard, 
+  BarChart3, 
+  FileText, 
+  CheckCircle, 
+  ShieldAlert,
+  RefreshCw,
+  Power,
+  Shield,
+  AlertTriangle,
+  UserX,
+  VolumeX,
+  Search,
+  Filter,
+  MoreHorizontal,
+  Download,
+  Check,
+  X,
+  Trash2,
+  AlertOctagon,
+  RefreshCcw,
+  ShieldCheck,
+  Zap
+} from "lucide-react";
 
 dayjs.extend(relativeTime);
 ChartJS.register(LineElement, ArcElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend, BarElement);
@@ -92,13 +116,8 @@ const notify = (message: string) => {
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
-type ModerationFormProps = {
-  title: string;
-  status: MemberStatus;
-  data: MemberModeration[];
-  onSubmit: (event: React.FormEvent<HTMLFormElement>, status: MemberStatus) => void;
-  onRelease: (userId: number, status: MemberStatus) => void;
-};
+// View types for navigation
+type View = "DASHBOARD" | "STATS" | "LOGS" | "VERIFY" | "ADMIN";
 
 export default function App() {
   const [chatId, setChatId] = useState<number | null>(null);
@@ -125,13 +144,15 @@ export default function App() {
   const [historyPage, setHistoryPage] = useState(0);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewPage, setReviewPage] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [verifyingEvent, setVerifyingEvent] = useState<number | null>(null);
   const [userActions, setUserActions] = useState<UserActionSummary[]>([]);
   const [userActionsLoading, setUserActionsLoading] = useState(false);
   const [resettingAction, setResettingAction] = useState<{ userId: number; action: "warned" | "muted" } | null>(null);
+  const [currentView, setCurrentView] = useState<View>("DASHBOARD");
+  const [manualMode, setManualMode] = useState(false);
+  
   const currentThresholdState = chatId ? thresholdState[chatId] : undefined;
   const derivedModeFromSettings = useMemo(() => {
     if (!settings) return "balanced";
@@ -170,23 +191,6 @@ export default function App() {
     { value: "30d", label: "30 hari" },
   ];
   const initialChat = useRef<number | null>(null);
-  const overviewRef = useRef<HTMLElement | null>(null);
-  const analyticsRef = useRef<HTMLElement | null>(null);
-  const historyRef = useRef<HTMLElement | null>(null);
-  const adminRef = useRef<HTMLElement | null>(null);
-  const membersRef = useRef<HTMLElement | null>(null);
-  type SectionKey = "overview" | "analytics" | "history" | "admin" | "members";
-  const sectionRefs = useMemo(
-    () => ({
-      overview: overviewRef,
-      analytics: analyticsRef,
-      history: historyRef,
-      admin: adminRef,
-      members: membersRef,
-    }),
-    [],
-  );
-  const [activeSection, setActiveSection] = useState<SectionKey>("overview");
 
   useEffect(() => {
     ensureTelegramReady();
@@ -199,12 +203,6 @@ export default function App() {
       if (derived < 0) {
         setChatId(derived);
       }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 900) {
-      setSidebarOpen(false);
     }
   }, []);
 
@@ -229,37 +227,6 @@ export default function App() {
     };
     loadGroups();
   }, [chatId]);
-
-  const handleSectionClick = (key: SectionKey) => {
-    setActiveSection(key);
-    const target = sectionRefs[key].current;
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible[0]) {
-          const sectionId = visible[0].target.getAttribute("data-section") as SectionKey | null;
-          if (sectionId) {
-            setActiveSection(sectionId);
-          }
-        }
-      },
-      { threshold: 0.35, rootMargin: "-25% 0px -25% 0px" },
-    );
-    Object.values(sectionRefs).forEach((ref) => {
-      if (ref.current) {
-        observer.observe(ref.current);
-      }
-    });
-    return () => observer.disconnect();
-  }, [sectionRefs]);
 
   useEffect(() => {
     if (!chatId) return;
@@ -925,14 +892,13 @@ export default function App() {
     await handleSettingsUpdate({ mode, threshold: value });
   };
 
-  const navigation: { key: SectionKey; label: string }[] = [
-    { key: "overview", label: "Ikhtisar" },
-    { key: "analytics", label: "Analitik" },
-    { key: "history", label: "Riwayat" },
-    { key: "admin", label: "Admin" },
-    { key: "members", label: "Anggota" },
-  ];
-  const toggleSidebar = () => setSidebarOpen((prev) => !prev);
+  const handleRefresh = () => {
+    setLoading(true);
+    setTimeout(() => {
+      setLastUpdated(new Date());
+      setLoading(false);
+    }, 1500);
+  };
 
   if (accessDenied) {
     return (
@@ -952,764 +918,1001 @@ export default function App() {
     );
   }
 
+  // Render the current view based on navigation
+  const renderView = () => {
+    switch (currentView) {
+      case "DASHBOARD":
+        return <Dashboard 
+          chatId={chatId}
+          currentGroup={currentGroup}
+          settings={settings}
+          manualMode={manualMode}
+          setManualMode={setManualMode}
+          lastUpdated={lastUpdated}
+          handleRefresh={handleRefresh}
+          refreshing={loading}
+          groups={groups}
+          setChatId={setChatId}
+          handleSettingsUpdate={handleSettingsUpdate}
+          baseMetricCards={baseMetricCards}
+        />;
+      case "STATS":
+        return <Stats 
+          lineChartData={lineChartData}
+          doughnutData={doughnutData}
+          statsWindow={statsWindow}
+          setStatsWindow={setStatsWindow}
+          topOffenderWindow={topOffenderWindow}
+          setTopOffenderWindow={setTopOffenderWindow}
+          offenderLoading={offenderLoading}
+          offenderStats={offenderStats}
+          topOffenderProgress={topOffenderProgress}
+          offenderList={offenderList}
+        />;
+      case "LOGS":
+        return <Logs 
+          allEvents={allEvents}
+          filteredHistoryList={filteredHistoryList}
+          historyPage={historyPage}
+          historyPageCount={historyPageCount}
+          hasPrevPage={hasPrevPage}
+          hasNextPage={hasNextPage}
+          handleHistoryPrev={handleHistoryPrev}
+          handleHistoryNext={handleHistoryNext}
+          historyLoading={historyLoading}
+          manualFilter={manualFilter}
+          setManualFilter={setManualFilter}
+          manualFilterOptions={manualFilterOptions}
+          detectionFilter={detectionFilter}
+          setDetectionFilter={setDetectionFilter}
+          detectionFilterOptions={detectionFilterOptions}
+          actionFilter={actionFilter}
+          setActionFilter={setActionFilter}
+          actionFilterOptions={actionFilterOptions}
+          timeFilter={timeFilter}
+          setTimeFilter={setTimeFilter}
+          timeFilterOptions={timeFilterOptions}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          handleExport={handleExport}
+        />;
+      case "VERIFY":
+        return <Verification 
+          visibleReviewEvents={visibleReviewEvents}
+          reviewPage={reviewPage}
+          reviewPageCount={reviewPageCount}
+          hasReviewPrev={hasReviewPrev}
+          hasReviewNext={hasReviewNext}
+          handleReviewPrev={handleReviewPrev}
+          handleReviewNext={handleReviewNext}
+          reviewLoading={reviewLoading}
+          verifyingEvent={verifyingEvent}
+          handleManualVerification={handleManualVerification}
+        />;
+      case "ADMIN":
+        return <AdminPanel 
+          admins={admins}
+          handleAddAdmin={handleAddAdmin}
+          handleRemoveAdmin={handleRemoveAdmin}
+          testInput={testInput}
+          setTestInput={setTestInput}
+          handleRunTest={handleRunTest}
+          pending={pending}
+          testResult={testResult}
+          userActions={userActions}
+          userActionsLoading={userActionsLoading}
+          refreshUserActions={refreshUserActions}
+          resettingAction={resettingAction}
+          handleResetUserAction={handleResetUserAction}
+        />;
+      default:
+        return <Dashboard 
+          chatId={chatId}
+          currentGroup={currentGroup}
+          settings={settings}
+          manualMode={manualMode}
+          setManualMode={setManualMode}
+          lastUpdated={lastUpdated}
+          handleRefresh={handleRefresh}
+          refreshing={loading}
+          groups={groups}
+          setChatId={setChatId}
+          handleSettingsUpdate={handleSettingsUpdate}
+          baseMetricCards={baseMetricCards}
+        />;
+    }
+  };
+
   return (
-    <div className="app-shell">
-      <div className={clsx("sidebar-overlay", sidebarOpen && "visible")} onClick={() => sidebarOpen && toggleSidebar()} />
-      <aside className={clsx("sidebar panel", sidebarOpen ? "open" : "collapsed")}>
-        <div className="brand compact">
-          <div className="logo-dot">
-            <span>CM</span>
-          </div>
-          <div>
-            <p className="eyebrow">Content Moderator</p>
-            <h2>Control Tower</h2>
-          </div>
-        </div>
-        <ViewportDebug />  {/* debug panel */}
-        <div className="nav-list">
-          {navigation.map((item) => (
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-neon-blue/30 selection:text-white">
+      {/* Background Ambient Glow */}
+      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+          <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-primary-900/20 rounded-full blur-[100px] animate-pulse-slow"></div>
+          <div className="absolute top-[20%] right-[0%] w-[40%] h-[40%] bg-blue-900/10 rounded-full blur-[100px]"></div>
+          <div className="absolute bottom-[0%] left-[20%] w-[60%] h-[40%] bg-purple-900/10 rounded-full blur-[100px]"></div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="relative z-10 max-w-lg mx-auto min-h-screen bg-slate-950/50 shadow-2xl border-x border-slate-900">
+        
+        {/* Top Bar */}
+        <header className="sticky top-0 z-40 glass-panel border-b border-slate-800/50 px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary-600 to-neon-blue flex items-center justify-center shadow-lg shadow-primary-500/20">
+                   <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                   </svg>
+                </div>
+                <h1 className="font-bold text-lg tracking-tight text-white">HateSpeech<span className="text-primary-400">Mod</span></h1>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
+                <img src="https://picsum.photos/32/32" alt="Admin" className="w-full h-full rounded-full opacity-80 hover:opacity-100 transition-opacity" />
+            </div>
+        </header>
+
+        {renderView()}
+        
+      </div>
+
+      <Navigation currentView={currentView} onViewChange={setCurrentView} />
+    </div>
+  );
+}
+
+// Navigation component
+function Navigation({ currentView, onViewChange }: { currentView: View; onViewChange: (view: View) => void }) {
+  const navItems = [
+    { view: "DASHBOARD" as View, icon: LayoutDashboard, label: 'Dash' },
+    { view: "STATS" as View, icon: BarChart3, label: 'Stats' },
+    { view: "VERIFY" as View, icon: CheckCircle, label: 'Verify' },
+    { view: "LOGS" as View, icon: FileText, label: 'Logs' },
+    { view: "ADMIN" as View, icon: ShieldAlert, label: 'Admin' },
+  ];
+
+  return (
+    <div className="fixed bottom-0 left-0 w-full glass-panel border-t border-slate-700 pb-safe pt-2 px-6 z-50">
+      <div className="flex justify-between items-center max-w-lg mx-auto h-16">
+        {navItems.map((item) => {
+          const isActive = currentView === item.view;
+          return (
             <button
-              key={item.key}
-              type="button"
-              className={clsx("nav-item", activeSection === item.key && "active")}
-              onClick={() => handleSectionClick(item.key)}
+              key={item.view}
+              onClick={() => onViewChange(item.view)}
+              className={`flex flex-col items-center justify-center w-12 transition-all duration-300 ${
+                isActive ? 'text-neon-blue -translate-y-2' : 'text-slate-400 hover:text-slate-200'
+              }`}
             >
-              {item.label}
+              <div className={`p-2 rounded-full transition-all duration-300 ${isActive ? 'bg-primary-500/20 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : ''}`}>
+                <item.icon size={isActive ? 24 : 20} strokeWidth={isActive ? 2.5 : 2} />
+              </div>
+              <span className={`text-[10px] mt-1 font-medium ${isActive ? 'opacity-100' : 'opacity-0'}`}>
+                {item.label}
+              </span>
             </button>
-          ))}
-        </div>
-      </aside>
-      <div className={clsx("content", sidebarOpen && "menu-open")}>
-        <nav className="top-nav panel">
-          <button className={clsx("sidebar-toggle", sidebarOpen && "open")} type="button" onClick={toggleSidebar} aria-label="Toggle menu">
-            <span className="toggle-line" />
-            <span className="toggle-line" />
-            <span className="toggle-line" />
-          </button>
-          <div className="brand">
-            <div className="logo-dot">
-              <span>CM</span>
-            </div>
-            <div>
-              <p className="eyebrow">Content Moderator</p>
-              <h1>Control Tower</h1>
-            </div>
-          </div>
-          <div className="status-group">
-            <div className="status-card">
-              <span className={clsx("status-indicator", autoRefresh ? (loading ? "syncing" : "live") : "paused")} />
-              <div>
-                <strong>{autoRefresh ? (loading ? "Sinkronisasi" : "Realtime aktif") : "Mode manual"}</strong>
-                <p>{lastUpdated ? `Last update ${dayjs(lastUpdated).fromNow()}` : "Menunggu data..."}</p>
-              </div>
-            </div>
-            <div className="status-controls">
-              <button className={clsx("status-toggle", autoRefresh ? "on" : "off")} type="button" onClick={handleAutoRefreshToggle}>
-                <span className="bullet" />
-                {autoRefresh ? "Realtime ON" : "Realtime OFF"}
-              </button>
-              <div className="status-buttons">
-                <button className="btn ghost" onClick={() => refresh()}>
-                  Refresh Data
-                </button>
-              </div>
-            </div>
-          </div>
-        </nav>
-        {!sidebarOpen && <div className="mobile-nav-spacer" />}
-
-        <section ref={overviewRef} data-section="overview" className="section-stack">
-          <div className="panel group-panel">
-            <div className="panel-header">
-              <div>
-                <p className="eyebrow">Grup diawasi</p>
-                <h2>{currentGroup?.title ?? "Grup"}</h2>
-                <p className="muted">ID: {chatId}</p>
-              </div>
-              <button
-                className={clsx("toggle", settings?.enabled ? "on" : "off")}
-                onClick={() => handleSettingsUpdate({ enabled: !(settings?.enabled ?? false) })}
-              >
-                <span className="bullet" />
-                {settings?.enabled ? "Moderasi aktif" : "Moderasi nonaktif"}
-              </button>
-            </div>
-            <div className="group-body">
-              <div className="group-list">
-                {groups.length === 0 && <p className="muted">Belum ada grup terdaftar.</p>}
-                {groups.map((group) => (
-                  <button
-                    key={group.chat_id}
-                    type="button"
-                    className={clsx("group-chip", group.chat_id === chatId && "active")}
-                    onClick={() => setChatId(group.chat_id)}
-                  >
-                    <div>
-                      <strong>{group.title ?? group.chat_id}</strong>
-                      <p>{group.group_type ?? "unknown"}</p>
-                    </div>
-                    <small>{dayjs(group.last_active).fromNow()}</small>
-                  </button>
-                ))}
-              </div>
-              <div className="group-controls">
-                <div className="control-row">
-                  <span>Mode</span>
-                  <div className="tab-group">
-                    {(["precision", "balanced", "recall"] as SettingsResponse["mode"][]).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        className={clsx("tab", modeSelection === mode && "active")}
-                        onClick={() => handleModeSelect(mode)}
-                      >
-                        {mode}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      className={clsx("tab", modeSelection === "custom" && "active")}
-                      onClick={() => {
-                        if (!chatId) return;
-                        setThresholdState((prev) => ({
-                          ...prev,
-                          [chatId]: { value: thresholdPreview, mode: "custom" },
-                        }));
-                      }}
-                    >
-                      custom
-                    </button>
-                  </div>
-                </div>
-                <div className="control-row threshold">
-                  <div>
-                    <span>Ambang moderasi</span>
-                    <strong>{formatPercent(thresholdPreview)}</strong>
-                  </div>
-                  <input
-                    type="range"
-                    min={THRESHOLD_MIN}
-                    max={THRESHOLD_MAX}
-                    step={0.01}
-                    value={thresholdPreview}
-                    onChange={(event) => {
-                      if (!chatId) return;
-                      const value = Number(event.target.value);
-                      setThresholdState((prev) => ({
-                        ...prev,
-                        [chatId]: { value, mode: "custom" },
-                      }));
-                    }}
-                    onMouseUp={commitThreshold}
-                    onPointerUp={commitThreshold}
-                    onTouchEnd={commitThreshold}
-                    onBlur={commitThreshold}
-                  />
-                </div>
-                <div className="control-row retention">
-                  <label htmlFor="retention">
-                    Retensi log (hari)
-                    <input
-                      id="retention"
-                      type="number"
-                      min={1}
-                      max={90}
-                      value={retentionDraft ?? ""}
-                      onChange={(event) => setRetentionDraft(event.target.value ? Number(event.target.value) : null)}
-                      onBlur={commitRetention}
-                    />
-                  </label>
-                  <p className="muted">Data lama akan dibersihkan otomatis.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="panel metrics-panel">
-            {baseMetricCards.map((card) => (
-              <div key={card.label} className="metric-card">
-                <p>{card.label}</p>
-                <h3 className={clsx(card.accent)}>{card.value}</h3>
-                <small>{card.detail}</small>
-              </div>
-            ))}
-            <div className="moderation-status">
-              {moderationStatusCards.map((card) => (
-                <div key={card.label} className={clsx("status-card", card.tone)}>
-                  <div className="status-top">
-                    <p>{card.label}</p>
-                    <span>{card.detail}</span>
-                  </div>
-                  <div className="status-value">{card.value}</div>
-                  <p className="status-description">{card.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section ref={analyticsRef} data-section="analytics" className="panel charts-panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">Timeline moderasi</p>
-              <h3>Aktivitas {statsWindow}</h3>
-            </div>
-            <div className="tab-group">
-              {(["24h", "7d"] as const).map((window) => (
-                <button
-                  key={window}
-                  type="button"
-                  className={clsx("tab", statsWindow === window && "active")}
-                  onClick={() => setStatsWindow(window)}
-                >
-                  {window}
-                </button>
-              ))}
-            </div>
-          </div>
-          {lineChartData ? (
-            <Line
-              data={lineChartData}
-              options={{
-                plugins: { legend: { position: "bottom" } },
-                scales: { y: { beginAtZero: true } },
-              }}
-            />
-          ) : (
-            <p className="muted">Belum ada data historis.</p>
-          )}
-          <div className="chart-side">
-            <div className="panel-subcard">
-              <h4>Komposisi tindakan</h4>
-              {doughnutData ? (
-                <Doughnut
-                  data={doughnutData}
-                  options={{
-                    plugins: { legend: { position: "bottom" } },
-                  }}
-                />
-              ) : (
-                <p className="muted">Belum ada tindakan yang tercatat.</p>
-              )}
-            </div>
-            <div className="panel-subcard offenders">
-              <div className="offender-header">
-                <h4>Top pelanggar</h4>
-                <div className="chip-row compact">
-                  {TOP_OFFENDER_WINDOWS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      className={clsx("chip", topOffenderWindow === option.value && "active")}
-                      onClick={() => setTopOffenderWindow(option.value)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {offenderLoading ? (
-                <p className="muted">Memuat data top pelanggar…</p>
-              ) : !offenderStats ? (
-                <p className="muted">Data top pelanggar belum tersedia.</p>
-              ) : offenderList.length === 0 ? (
-                <p className="muted">Belum ada pelaku dominan.</p>
-              ) : (
-                <div className="offender-bars">
-                  {topOffenderProgress?.map((item) => (
-                    <div key={item.label} className="offender-row">
-                      <div className="offender-label">
-                        <strong>{item.label}</strong>
-                        <span>{item.value}x</span>
-                      </div>
-                      <div className="offender-meter">
-                        <div className="offender-meter-fill" style={{ width: `${item.percent}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                  <ul>
-                    {offenderList.map((entry) => (
-                      <li key={entry}>{entry}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <section ref={historyRef} data-section="history" className="panel history-panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">Riwayat realtime</p>
-              <h3>Tindakan + chat log terbaru</h3>
-            </div>
-            <div className="history-meta">
-              {autoRefresh && <p className="muted">Merefresh otomatis tiap {REFRESH_MS / 1000} detik.</p>}
-              <p className="muted">5 entri per halaman.</p>
-            </div>
-          </div>
-          <div className="history-filters">
-            <div>
-              <p className="eyebrow">Filter verifikasi</p>
-              <div className="chip-row">
-                {manualFilterOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={clsx("chip", manualFilter === option.value && "active")}
-                    onClick={() => setManualFilter(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="eyebrow">Deteksi bot</p>
-              <div className="chip-row">
-                {detectionFilterOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={clsx("chip", detectionFilter === option.value && "active")}
-                    onClick={() => setDetectionFilter(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="eyebrow">Jenis tindakan</p>
-              <div className="chip-row">
-                {actionFilterOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={clsx("chip", actionFilter === option.value && "active")}
-                    onClick={() => setActionFilter(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="eyebrow">Rentang waktu</p>
-              <div className="chip-row">
-                {timeFilterOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={clsx("chip", timeFilter === option.value && "active")}
-                    onClick={() => setTimeFilter(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="eyebrow">Cari teks / pengguna</p>
-              <input
-                type="text"
-                className="input"
-                placeholder="Cari username, user ID, atau isi pesan"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-              />
-            </div>
-          </div>
-          {(chatLogChartData || chatLogActionChartData) && (
-            <div className="history-charts">
-              {chatLogChartData && (
-                <div className="history-chart">
-                  <h4>Tren skor hate (riwayat terbaru)</h4>
-                  <Line
-                    data={chatLogChartData}
-                    options={{
-                      plugins: { legend: { display: false } },
-                      maintainAspectRatio: false,
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          suggestedMax: 100,
-                          ticks: {
-                            callback: (value) => `${value}%`,
-                            color: "#e2e8f0",
-                          },
-                          grid: { color: "rgba(255,255,255,0.07)" },
-                        },
-                        x: {
-                          grid: { display: false },
-                          ticks: { color: "#cbd5f5" },
-                        },
-                      },
-                    }}
-                  />
-                </div>
-              )}
-              {chatLogActionChartData && (
-                <div className="history-chart action">
-                  <h4>Distribusi tindakan (riwayat terbaru)</h4>
-                  <Bar
-                    data={chatLogActionChartData}
-                    options={{
-                      plugins: { legend: { display: false } },
-                      maintainAspectRatio: false,
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                          ticks: { color: "#e2e8f0", precision: 0, stepSize: 1 },
-                          grid: { color: "rgba(255,255,255,0.07)" },
-                        },
-                        x: {
-                          ticks: { color: "#cbd5f5" },
-                          grid: { display: false },
-                        },
-                      },
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Pengguna</th>
-                  <th>Skor</th>
-                  <th>Alasan</th>
-                  <th>Tindakan</th>
-                  <th>Verifikasi</th>
-                  <th>Waktu</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleHistoryEvents.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="muted">
-                      Tidak ada data yang cocok dengan filter.
-                    </td>
-                  </tr>
-                )}
-                {visibleHistoryEvents.map((event) => {
-                  const meta = ACTION_META[event.action] ?? { label: event.action, tone: "muted" };
-                  return (
-                    <tr key={event.id}>
-                      <td>
-                        <strong>{event.username ?? event.user_id ?? "unknown"}</strong>
-                        <p className="muted">{event.text ?? "-"}</p>
-                      </td>
-                      <td>{formatPercent(event.prob_hate)}</td>
-                      <td>{event.reason ?? "-"}</td>
-                      <td>
-                        <span className={clsx("badge", meta.tone)}>{meta.label}</span>
-                      </td>
-                      <td>
-                        {event.manual_verified ? (
-                          <span className={clsx("badge", event.manual_label === "hate" ? "danger" : "success")}>
-                            {event.manual_label === "hate" ? "Hate Speech" : "Non-hate"}
-                          </span>
-                        ) : (
-                          <span className="muted">Belum</span>
-                        )}
-                      </td>
-                      <td>{dayjs(event.created_at).format("DD MMM YYYY HH:mm:ss")}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="history-actions">
-            <button className="btn ghost" type="button" disabled={!hasPrevPage || historyLoading} onClick={handleHistoryPrev}>
-              Sebelumnya
-            </button>
-            <span className="muted">
-              Halaman {Math.min(historyPage + 1, historyPageCount)} dari {historyPageCount}
-            </span>
-            <button className="btn ghost" type="button" disabled={!hasNextPage || historyLoading} onClick={handleHistoryNext}>
-              Berikutnya
-            </button>
-            <button className="btn primary" type="button" onClick={handleExport} disabled={historyLoading || !filteredHistoryList.length}>
-              Unduh CSV (sesuai filter)
-            </button>
-          </div>
-        <div className="user-actions-panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">Kontrol pelanggar</p>
-              <h3>Peringatan & mute pengguna</h3>
-              <p className="muted subtext">Lihat riwayat peringatan & atur ulang batas tiap pengguna.</p>
-            </div>
-            <button className="btn ghost small" type="button" onClick={refreshUserActions} disabled={userActionsLoading}>
-              {userActionsLoading ? "Memuat..." : "Refresh"}
-            </button>
-          </div>
-          <div className="user-actions-grid">
-            {userActions.length === 0 && !userActionsLoading && (
-              <p className="muted">Belum ada data pengguna untuk ditampilkan.</p>
-            )}
-            {userActionsLoading && <p className="muted">Memuat data pelanggar…</p>}
-            {userActions.map((entry) => (
-              <article key={entry.user_id} className="user-action-card">
-                <header>
-                  <div>
-                    <strong>{entry.username ?? entry.user_id}</strong>
-                    <p className="muted">ID {entry.user_id}</p>
-                  </div>
-                </header>
-                <div className="user-stats">
-                  <div className="metric-pill warning">
-                    <span className="value">{entry.warnings_today}</span>
-                    <span className="label">peringatan</span>
-                  </div>
-                  <div className="metric-pill mute">
-                    <span className="value">{entry.mutes_total}</span>
-                    <span className="label">mute total</span>
-                  </div>
-                </div>
-                <div className="last-activity">
-                  <span>Warning: {entry.last_warning ? dayjs(entry.last_warning).fromNow() : "-"}</span>
-                  <span>Mute: {entry.last_mute ? dayjs(entry.last_mute).fromNow() : "-"}</span>
-                </div>
-                <div className="action-buttons horizontal">
-                  <button
-                    type="button"
-                    className="btn outline small"
-                    disabled={resettingAction?.userId === entry.user_id && resettingAction?.action === "warned"}
-                    onClick={() => handleResetUserAction(entry.user_id, "warned")}
-                  >
-                    Reset warning
-                  </button>
-                  <button
-                    type="button"
-                    className="btn outline small"
-                    disabled={resettingAction?.userId === entry.user_id && resettingAction?.action === "muted"}
-                    onClick={() => handleResetUserAction(entry.user_id, "muted")}
-                  >
-                    Reset mute
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-        <div className="verification-panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">Verifikasi manual</p>
-              <h3>Labeli pesan secara cepat</h3>
-            </div>
-            <p className="muted">Pilih label hate/non-hate untuk meningkatkan akurasi model.</p>
-          </div>
-          <div className="verification-grid">
-            {!reviewLoading && visibleReviewEvents.length === 0 && <p className="muted">Tidak ada pesan yang cocok dengan filter.</p>}
-            {reviewLoading && <p className="muted">Memuat data verifikasi…</p>}
-            {visibleReviewEvents.map((event) => (
-              <article key={`verify-${event.id}`} className={clsx("verification-card", event.manual_verified && "verified")}>
-                <header>
-                  <div>
-                    <strong>{event.username ?? event.user_id ?? "unknown"}</strong>
-                    <p className="muted">{dayjs(event.created_at).format("DD MMM YYYY HH:mm")}</p>
-                  </div>
-                  <span className="badge muted">{formatPercent(event.prob_hate)}</span>
-                </header>
-                <p className="text">
-                  {event.text ? event.text.slice(0, 140) : "Tidak ada pesan tersimpan."}
-                  {event.text && event.text.length > 140 ? "…" : ""}
-                </p>
-                {event.manual_verified ? (
-                  <div className="verified-pill">
-                    Ditandai {event.manual_label === "hate" ? "Hate Speech" : "Non-hate"} ·{" "}
-                    {event.manual_verified_at ? dayjs(event.manual_verified_at).fromNow() : "baru saja"}
-                  </div>
-                ) : (
-                  <div className="verify-actions">
-                    <button
-                      type="button"
-                      className="btn danger"
-                      disabled={verifyingEvent === event.id}
-                      onClick={() => handleManualVerification(event.id, "hate")}
-                    >
-                      Tandai hatespeech
-                    </button>
-                    <button
-                      type="button"
-                      className="btn success"
-                      disabled={verifyingEvent === event.id}
-                      onClick={() => handleManualVerification(event.id, "non-hate")}
-                    >
-                      Tandai non-hate
-                    </button>
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-          <div className="history-actions">
-            <button className="btn ghost" type="button" disabled={!hasReviewPrev || reviewLoading} onClick={handleReviewPrev}>
-              Sebelumnya
-            </button>
-            <span className="muted">
-              Halaman {Math.min(reviewPage + 1, reviewPageCount)} dari {reviewPageCount}
-            </span>
-            <button className="btn ghost" type="button" disabled={!hasReviewNext || reviewLoading} onClick={handleReviewNext}>
-              Berikutnya
-            </button>
-          </div>
-        </div>
-      </section>
-
-        <section ref={adminRef} data-section="admin" className="panel admin-panel">
-          <div>
-            <div className="panel-header">
-              <div>
-                <p className="eyebrow">Kelola admin</p>
-                <h3>Akses dashboard</h3>
-              </div>
-            </div>
-            <form onSubmit={handleAddAdmin} className="form-grid">
-              <input name="admin_id" placeholder="User ID" className="input" />
-              <button className="btn primary" type="submit">
-                Tambah
-              </button>
-            </form>
-            <ul className="list">
-              {admins.length === 0 && <li className="list-empty">Belum ada admin tambahan.</li>}
-              {admins.map((admin) => (
-                <li key={admin.id} className="list-item">
-                  <div>
-                    <strong>{admin.user_id}</strong>
-                    <p className="muted">{dayjs(admin.added_at).fromNow()}</p>
-                  </div>
-                  <button className="btn ghost" type="button" onClick={() => handleRemoveAdmin(admin.user_id)}>
-                    Hapus
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <div className="panel-header">
-              <div>
-                <p className="eyebrow">Simulasi teks</p>
-                <h3>Uji model</h3>
-              </div>
-            </div>
-            <form onSubmit={handleRunTest} className="form-grid">
-              <textarea className="input" placeholder="Masukkan pesan" value={testInput} onChange={(event) => setTestInput(event.target.value)} />
-              <button className="btn primary" type="submit" disabled={pending}>
-                Jalankan
-              </button>
-            </form>
-            {testResult && <p className="muted">{testResult}</p>}
-          </div>
-        </section>
-
-        <section ref={membersRef} data-section="members" className="panel members-panel">
-          <ModerationForm title="Pengguna dimute" status="muted" data={muted} onSubmit={handleAddMemberStatus} onRelease={handleRemoveMember} />
-          <ModerationForm title="Pengguna diblokir" status="banned" data={banned} onSubmit={handleAddMemberStatus} onRelease={handleRemoveMember} />
-        </section>
-
-        {loading && (
-          <div className="loading-overlay">
-            <div className="spinner" />
-            <p>Memuat data dashboard…</p>
-          </div>
-        )}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function ModerationForm({ title, status, data, onSubmit, onRelease }: ModerationFormProps) {
-  return (
-    <div className="moderation-card">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">{status === "muted" ? "Mute otomatis" : "Ban otomatis"}</p>
-          <h3>{title}</h3>
-        </div>
-      </div>
-      <form onSubmit={(event) => onSubmit(event, status)} className="form-grid">
-        <input name={`${status}_user`} className="input" placeholder="User ID" />
-        <input name={`${status}_username`} className="input" placeholder="username (opsional)" />
-        {status === "muted" && <input name="muted_duration" className="input" placeholder="Durasi (menit)" />}
-        <input name={`${status}_reason`} className="input" placeholder="Alasan" />
-        <button className="btn ghost" type="submit">
-          {status === "muted" ? "Tambah mute" : "Ban pengguna"}
-        </button>
-      </form>
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Pengguna</th>
-              <th>Alasan</th>
-              <th>Sejak</th>
-              <th>Berakhir</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {data.length === 0 && (
-              <tr>
-                <td colSpan={5} className="muted">
-                  Tidak ada data.
-                </td>
-              </tr>
-            )}
-            {data.map((item) => (
-              <tr key={item.id}>
-                <td>
-                  <strong>{item.username ?? item.user_id}</strong>
-                  <p className="muted">{item.user_id}</p>
-                </td>
-                <td>{item.reason ?? "otomatis"}</td>
-                <td>{dayjs(item.created_at).format("DD MMM HH:mm")}</td>
-                <td>{item.expires_at ? dayjs(item.expires_at).format("DD MMM HH:mm") : status === "muted" ? "Sampai dibuka" : "Permanent"}</td>
-                <td>
-                  <button className="btn danger" type="button" onClick={() => onRelease(item.user_id, status)}>
-                    Lepas
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function ViewportDebug() {
-  const [size, setSize] = useState({ w: 0, h: 0 });
+// Dashboard component
+function Dashboard({ 
+  chatId, 
+  currentGroup, 
+  settings, 
+  manualMode, 
+  setManualMode, 
+  lastUpdated, 
+  handleRefresh, 
+  refreshing, 
+  groups, 
+  setChatId, 
+  handleSettingsUpdate, 
+  baseMetricCards 
+}: {
+  chatId: number;
+  currentGroup?: GroupSummary;
+  settings?: SettingsResponse | null;
+  manualMode: boolean;
+  setManualMode: (mode: boolean) => void;
+  lastUpdated: Date | null;
+  handleRefresh: () => void;
+  refreshing: boolean;
+  groups: GroupSummary[];
+  setChatId: (id: number) => void;
+  handleSettingsUpdate: (payload: Partial<SettingsResponse>) => Promise<void>;
+  baseMetricCards: Array<{ label: string; value: number; detail: string; accent?: string }>;
+}) {
+  const [lastUpdate, setLastUpdate] = useState("Just now");
 
   useEffect(() => {
-    const update = () => setSize({ w: window.innerWidth, h: window.innerHeight });
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
+    if (lastUpdated) {
+      setLastUpdate("Just now");
+      const timer = setTimeout(() => {
+        setLastUpdate(dayjs(lastUpdated).fromNow());
+      }, 60000);
+      return () => clearTimeout(timer);
+    }
+  }, [lastUpdated]);
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 10,
-        right: 10,
-        padding: "6px 10px",
-        borderRadius: 6,
-        background: "rgba(0,0,0,0.7)",
-        color: "white",
-        fontSize: 12,
-        zIndex: 99999,
-      }}
-    >
-      {size.w} x {size.h}
+    <div className="p-4 space-y-6 pb-24 animate-fade-in">
+      {/* Header Status Card */}
+      <div className="glass-panel p-5 rounded-3xl relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-4 opacity-10">
+          <Shield size={120} />
+        </div>
+        <div className="relative z-10">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${manualMode ? 'bg-orange-500 animate-pulse' : 'bg-neon-green shadow-[0_0_10px_#0aff68]'}`}></div>
+                    <h2 className="text-lg font-bold tracking-wide text-white">
+                        {manualMode ? 'Manual Mode' : 'Auto-Protection'}
+                    </h2>
+                </div>
+                <span className="text-xs text-slate-400 font-mono">{lastUpdate}</span>
+            </div>
+            
+            <p className="text-slate-400 text-sm mb-6">
+                {manualMode 
+                    ? "System is currently flagging content for review only." 
+                    : "System is actively filtering high-confidence threats."}
+            </p>
+
+            <div className="flex items-center justify-between">
+                <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                        <input type="checkbox" className="sr-only" checked={manualMode} onChange={() => setManualMode(!manualMode)} />
+                        <div className={`block w-14 h-8 rounded-full transition-colors duration-300 ${manualMode ? 'bg-orange-900' : 'bg-slate-700'}`}></div>
+                        <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform duration-300 ${manualMode ? 'translate-x-6 bg-orange-400' : ''}`}></div>
+                    </div>
+                    <span className="ml-3 text-sm font-medium text-slate-300">
+                        {manualMode ? 'Realtime OFF' : 'Realtime ON'}
+                    </span>
+                </label>
+                
+                <button 
+                    onClick={handleRefresh}
+                    className="flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-full text-xs font-bold border border-slate-600 transition-all active:scale-95"
+                >
+                    <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                    <span>Refresh Data</span>
+                </button>
+            </div>
+        </div>
+      </div>
+
+      {/* Monitored Groups */}
+      <div>
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Monitored Channels</h3>
+        <div className="flex overflow-x-auto space-x-3 pb-2 scrollbar-hide">
+            {groups.map(g => (
+                <div key={g.chat_id} className={`flex-shrink-0 w-64 p-4 rounded-2xl border transition-all duration-300 ${g.chat_id === chatId ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-primary-500/30' : 'bg-slate-900 border-slate-800 opacity-60'}`}>
+                    <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-bold text-white truncate pr-2">{g.title}</h4>
+                        <div className={`w-2 h-2 rounded-full ${g.chat_id === chatId ? 'bg-neon-green' : 'bg-slate-500'}`}></div>
+                    </div>
+                    <p className="text-xs text-slate-500 font-mono mb-3">ID: {g.chat_id}</p>
+                    <div className="flex items-center justify-between">
+                        <span className={`text-xs ${g.chat_id === chatId ? 'text-neon-green' : 'text-slate-500'}`}>
+                            {g.chat_id === chatId ? 'Active' : 'Paused'}
+                        </span>
+                        {/* Toggle Switch Mini */}
+                         <div className={`w-8 h-4 rounded-full relative ${g.chat_id === chatId ? 'bg-primary-600' : 'bg-slate-700'}`}>
+                             <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${g.chat_id === chatId ? 'translate-x-4' : ''}`}></div>
+                         </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+      </div>
+
+      {/* Summary Stats Grid */}
+      <div>
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Moderation Impact</h3>
+        <div className="grid grid-cols-2 gap-3">
+            <StatCard 
+                title="Total Actions" 
+                value={baseMetricCards[0].value.toString()} 
+                subtitle="Last 24 hours" 
+                icon={Shield} 
+                color="text-blue-400" 
+                bg="from-blue-500/10 to-transparent"
+            />
+            <StatCard 
+                title="Deleted" 
+                value={baseMetricCards[1].value.toString()} 
+                subtitle="High confidence" 
+                icon={UserX} 
+                color="text-red-400" 
+                bg="from-red-500/10 to-transparent"
+            />
+            <StatCard 
+                title="Auto-Muted" 
+                value={baseMetricCards[2].value.toString()} 
+                subtitle="Temporary" 
+                icon={VolumeX} 
+                color="text-purple-400" 
+                bg="from-purple-500/10 to-transparent"
+            />
+             <StatCard 
+                title="Warnings" 
+                value={baseMetricCards[3].value.toString()} 
+                subtitle="First offense" 
+                icon={AlertTriangle} 
+                color="text-orange-400" 
+                bg="from-orange-500/10 to-transparent"
+            />
+        </div>
+      </div>
+      
+      {/* Live Feed Teaser */}
+      <div className="glass-panel rounded-2xl p-4 border-l-4 border-neon-blue">
+          <div className="flex justify-between items-center mb-2">
+              <h4 className="font-bold text-white">Live Activity</h4>
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-blue opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-blue"></span>
+              </span>
+          </div>
+          <div className="space-y-3">
+              <div className="text-sm text-slate-300 border-b border-slate-800 pb-2">
+                  <span className="text-red-400 font-mono font-bold text-xs">[BLOCKED]</span> User <span className="text-white">@BadActor99</span> posted high toxicity content.
+              </div>
+              <div className="text-sm text-slate-300">
+                  <span className="text-orange-400 font-mono font-bold text-xs">[FLAGGED]</span> User <span className="text-white">@AnonUser</span> flagged for manual review (Score: 65%).
+              </div>
+          </div>
+      </div>
+    </div>
+  );
+}
+
+// Stats component
+function Stats({ 
+  lineChartData, 
+  doughnutData, 
+  statsWindow, 
+  setStatsWindow, 
+  topOffenderWindow, 
+  setTopOffenderWindow, 
+  offenderLoading, 
+  offenderStats, 
+  topOffenderProgress, 
+  offenderList 
+}: {
+  lineChartData: any;
+  doughnutData: any;
+  statsWindow: "24h" | "7d";
+  setStatsWindow: (window: "24h" | "7d") => void;
+  topOffenderWindow: "24h" | "7d";
+  setTopOffenderWindow: (window: "24h" | "7d") => void;
+  offenderLoading: boolean;
+  offenderStats: StatsResponse | null;
+  topOffenderProgress: any;
+  offenderList: string[];
+}) {
+  const pieData = doughnutData ? [
+    { name: 'Warned', value: doughnutData.datasets[0].data[1], color: '#f59e0b' }, // Amber
+    { name: 'Muted', value: doughnutData.datasets[0].data[2], color: '#6366f1' },  // Indigo
+    { name: 'Blocked', value: doughnutData.datasets[0].data[0], color: '#ef4444' }, // Red
+  ] : [];
+
+  return (
+    <div className="p-4 space-y-6 pb-24 animate-fade-in">
+        
+        {/* Date Filter */}
+        <div className="flex bg-slate-800 p-1 rounded-xl">
+            {['Today', '7 Days', '30 Days', 'All Time'].map((p, i) => (
+                <button key={p} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${i === 1 ? 'bg-slate-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}>
+                    {p}
+                </button>
+            ))}
+        </div>
+
+        {/* Activity Chart */}
+        <div className="glass-panel p-5 rounded-3xl border border-slate-700/50">
+            <h3 className="text-white font-bold mb-1">Moderation Activity</h3>
+            <div className="flex space-x-4 text-xs mb-4">
+                <span className="flex items-center text-blue-400"><span className="w-2 h-2 rounded-full bg-blue-400 mr-1"></span> Total</span>
+                <span className="flex items-center text-orange-400"><span className="w-2 h-2 rounded-full bg-orange-400 mr-1"></span> Warned</span>
+                <span className="flex items-center text-red-400"><span className="w-2 h-2 rounded-full bg-red-400 mr-1"></span> Blocked</span>
+            </div>
+            <div className="h-48 w-full">
+                {lineChartData && <Line data={lineChartData} options={{
+                  plugins: { legend: { display: false } },
+                  scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                  }
+                }} />}
+            </div>
+        </div>
+
+        {/* Composition Chart */}
+        <div className="glass-panel p-5 rounded-3xl border border-slate-700/50 flex items-center justify-between">
+            <div className="w-1/2">
+                <h3 className="text-white font-bold mb-4">Action<br/>Composition</h3>
+                <div className="space-y-2">
+                    {pieData.map((entry) => (
+                        <div key={entry.name} className="flex items-center justify-between text-xs">
+                             <div className="flex items-center">
+                                 <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: entry.color }}></div>
+                                 <span className="text-slate-300">{entry.name}</span>
+                             </div>
+                             <span className="font-mono text-white">{entry.value}%</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="w-1/2 h-32 relative">
+                {doughnutData && <Doughnut data={doughnutData} options={{
+                  plugins: { legend: { display: false } },
+                  cutout: '60%'
+                }} />}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                   <span className="text-xs font-bold text-slate-500">Total</span> 
+                </div>
+            </div>
+        </div>
+
+        {/* Top Offenders List */}
+        <div>
+            <div className="flex justify-between items-center mb-3 px-1">
+                <h3 className="text-white font-bold">Top Offenders</h3>
+                <span className="text-xs text-slate-500">Last 7 Days</span>
+            </div>
+            <div className="space-y-3">
+                {offenderLoading ? (
+                  <div className="glass-panel p-4 rounded-2xl text-center text-slate-400">
+                    Loading...
+                  </div>
+                ) : offenderList.length === 0 ? (
+                  <div className="glass-panel p-4 rounded-2xl text-center text-slate-400">
+                    No data available
+                  </div>
+                ) : (
+                  offenderList.map((user, idx) => (
+                      <div key={idx} className="glass-panel p-3 rounded-2xl flex items-center space-x-3">
+                          <img src={`https://picsum.photos/40/40?random=${idx}`} alt="avatar" className="w-10 h-10 rounded-full border border-slate-600" />
+                          <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-bold text-white truncate">{user}</h4>
+                              <div className="text-[10px] text-slate-400 font-mono">ID: {idx}</div>
+                          </div>
+                          <div className="text-right">
+                               <div className="text-sm font-bold text-neon-blue">{idx + 1} acts</div>
+                               <div className="w-24 h-1.5 bg-slate-800 rounded-full mt-1 overflow-hidden">
+                                   <div 
+                                      className="h-full bg-gradient-to-r from-blue-500 to-purple-500" 
+                                      style={{ width: `${(1 - idx * 0.2) * 100}%` }}
+                                   ></div>
+                               </div>
+                          </div>
+                      </div>
+                  ))
+                )}
+            </div>
+        </div>
+    </div>
+  );
+}
+
+// Logs component
+function Logs({ 
+  allEvents, 
+  filteredHistoryList, 
+  historyPage, 
+  historyPageCount, 
+  hasPrevPage, 
+  hasNextPage, 
+  handleHistoryPrev, 
+  handleHistoryNext, 
+  historyLoading, 
+  manualFilter, 
+  setManualFilter, 
+  manualFilterOptions, 
+  detectionFilter, 
+  setDetectionFilter, 
+  detectionFilterOptions, 
+  actionFilter, 
+  setActionFilter, 
+  actionFilterOptions, 
+  timeFilter, 
+  setTimeFilter, 
+  timeFilterOptions, 
+  searchTerm, 
+  setSearchTerm, 
+  handleExport 
+}: {
+  allEvents: EventEntry[];
+  filteredHistoryList: EventEntry[];
+  historyPage: number;
+  historyPageCount: number;
+  hasPrevPage: boolean;
+  hasNextPage: boolean;
+  handleHistoryPrev: () => void;
+  handleHistoryNext: () => void;
+  historyLoading: boolean;
+  manualFilter: string;
+  setManualFilter: (filter: string) => void;
+  manualFilterOptions: { value: string; label: string }[];
+  detectionFilter: string;
+  setDetectionFilter: (filter: string) => void;
+  detectionFilterOptions: { value: string; label: string }[];
+  actionFilter: string;
+  setActionFilter: (filter: string) => void;
+  actionFilterOptions: { value: string; label: string }[];
+  timeFilter: string;
+  setTimeFilter: (filter: string) => void;
+  timeFilterOptions: { value: string; label: string }[];
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
+  handleExport: () => void;
+}) {
+  const getActionColor = (action: string) => {
+      switch(action) {
+          case 'Banned': return 'text-red-500 bg-red-500/10 border-red-500/20';
+          case 'Muted': return 'text-purple-500 bg-purple-500/10 border-purple-500/20';
+          case 'Warned': return 'text-orange-500 bg-orange-500/10 border-orange-500/20';
+          default: return 'text-slate-400 bg-slate-800 border-slate-700';
+      }
+  };
+
+  const getScoreColor = (score: number) => {
+      if (score >= 90) return 'text-red-500';
+      if (score >= 70) return 'text-orange-500';
+      return 'text-green-500';
+  };
+
+  const visibleHistoryEvents = useMemo(
+    () => filteredHistoryList.slice(historyPage * 5, historyPage * 5 + 5),
+    [filteredHistoryList, historyPage],
+  );
+
+  return (
+    <div className="p-4 h-full flex flex-col pb-24 animate-fade-in">
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-white">History & Logs</h2>
+            <button className="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white" onClick={handleExport}>
+                <Download size={20} />
+            </button>
+        </div>
+
+        {/* Search & Filter */}
+        <div className="space-y-3 mb-6">
+            <div className="relative">
+                <Search className="absolute left-3 top-3 text-slate-500" size={18} />
+                <input 
+                    type="text" 
+                    placeholder="Search logs, users, content..." 
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <div className="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide">
+                {manualFilterOptions.map(filter => (
+                    <button key={filter.value} className="px-3 py-1.5 rounded-full border border-slate-700 text-xs text-slate-300 hover:bg-slate-800 whitespace-nowrap" onClick={() => setManualFilter(filter.value)}>
+                        {filter.label}
+                    </button>
+                ))}
+            </div>
+        </div>
+
+        {/* Table Header */}
+        <div className="grid grid-cols-12 gap-2 text-xs font-bold text-slate-500 px-2 mb-2 uppercase tracking-wider">
+            <div className="col-span-3">Time/User</div>
+            <div className="col-span-2 text-center">Action</div>
+            <div className="col-span-2 text-center">Score</div>
+            <div className="col-span-5">Content</div>
+        </div>
+
+        {/* List */}
+        <div className="space-y-2 overflow-y-auto flex-1 pr-1">
+            {visibleHistoryEvents.length === 0 && (
+              <div className="glass-panel p-4 rounded-xl text-center text-slate-400">
+                No data available
+              </div>
+            )}
+            {visibleHistoryEvents.map((event) => (
+                <div key={event.id} className="glass-panel p-3 rounded-xl grid grid-cols-12 gap-2 items-center hover:bg-slate-800/50 transition-colors">
+                    <div className="col-span-3">
+                        <div className="text-xs text-slate-400 font-mono">{dayjs(event.created_at).format("HH:mm")}</div>
+                        <div className="text-sm font-bold text-white truncate">{event.username ?? event.user_id}</div>
+                    </div>
+                    <div className="col-span-2 flex justify-center">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getActionColor(event.action)}`}>
+                            {event.action}
+                        </span>
+                    </div>
+                    <div className="col-span-2 text-center">
+                        <span className={`font-mono font-bold text-sm ${getScoreColor(event.prob_hate * 100)}`}>
+                            {Math.round(event.prob_hate * 100)}%
+                        </span>
+                    </div>
+                    <div className="col-span-4">
+                        <p className="text-xs text-slate-300 truncate opacity-80">{event.text ?? "No content"}</p>
+                    </div>
+                    <div className="col-span-1 flex justify-end">
+                        <MoreHorizontal size={16} className="text-slate-500" />
+                    </div>
+                </div>
+            ))}
+        </div>
+
+        {/* Pagination */}
+        <div className="flex justify-between items-center mt-4">
+            <button 
+              className={`px-4 py-2 rounded-lg text-xs font-medium ${hasPrevPage ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-900 text-slate-600 cursor-not-allowed'}`}
+              onClick={handleHistoryPrev}
+              disabled={!hasPrevPage || historyLoading}
+            >
+                Previous
+            </button>
+            <span className="text-xs text-slate-400">
+                Page {historyPage + 1} of {historyPageCount}
+            </span>
+            <button 
+              className={`px-4 py-2 rounded-lg text-xs font-medium ${hasNextPage ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-900 text-slate-600 cursor-not-allowed'}`}
+              onClick={handleHistoryNext}
+              disabled={!hasNextPage || historyLoading}
+            >
+                Next
+            </button>
+        </div>
+    </div>
+  );
+}
+
+// Verification component
+function Verification({ 
+  visibleReviewEvents, 
+  reviewPage, 
+  reviewPageCount, 
+  hasReviewPrev, 
+  hasReviewNext, 
+  handleReviewPrev, 
+  handleReviewNext, 
+  reviewLoading, 
+  verifyingEvent, 
+  handleManualVerification 
+}: {
+  visibleReviewEvents: EventEntry[];
+  reviewPage: number;
+  reviewPageCount: number;
+  hasReviewPrev: boolean;
+  hasReviewNext: boolean;
+  handleReviewPrev: () => void;
+  handleReviewNext: () => void;
+  reviewLoading: boolean;
+  verifyingEvent: number | null;
+  handleManualVerification: (eventId: number, label: "hate" | "non-hate") => Promise<void>;
+}) {
+  const [items, setItems] = useState(visibleReviewEvents);
+
+  useEffect(() => {
+    setItems(visibleReviewEvents);
+  }, [visibleReviewEvents]);
+
+  const handleDecision = async (id: number, isHate: boolean) => {
+    // Simulate removing card
+    const element = document.getElementById(`card-${id}`);
+    if (element) {
+        element.style.transform = isHate ? 'translateX(100vw)' : 'translateX(-100vw)';
+        element.style.opacity = '0';
+    }
+    await handleManualVerification(id, isHate ? "hate" : "non-hate");
+    setTimeout(() => {
+        setItems(prev => prev.filter(i => i.id !== id));
+    }, 300);
+  };
+
+  return (
+    <div className="p-4 pb-24 h-full flex flex-col animate-fade-in relative">
+        <div className="flex justify-between items-center mb-6">
+            <div>
+                <h2 className="text-2xl font-bold text-white">Manual Verification</h2>
+                <p className="text-sm text-slate-400">Review flagged messages</p>
+            </div>
+            <button className="text-neon-blue hover:text-white">
+                <Filter size={24} />
+            </button>
+        </div>
+
+        <div className="flex-1 relative">
+            {items.length === 0 ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
+                    <Check size={48} className="mb-4 text-green-500 opacity-50" />
+                    <p>All caught up! No pending reviews.</p>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {items.map((event) => (
+                        <div 
+                            key={event.id} 
+                            id={`card-${event.id}`}
+                            className="glass-panel p-5 rounded-3xl border border-slate-700/50 shadow-lg transition-all duration-300 transform"
+                        >
+                            <div className="flex items-center space-x-3 mb-4">
+                                <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden">
+                                    <img src={`https://picsum.photos/40/40?random=${event.user_id}`} alt="Avatar" />
+                                </div>
+                                <div>
+                                    <h4 className="text-white font-bold">{event.username ?? event.user_id}</h4>
+                                    <span className="text-xs text-slate-400">{dayjs(event.created_at).fromNow()}</span>
+                                </div>
+                                <div className="ml-auto text-right">
+                                    <div className="text-[10px] text-slate-500 uppercase tracking-wide">Confidence</div>
+                                    <div className={`text-xl font-mono font-bold ${event.prob_hate > 0.8 ? 'text-red-500' : 'text-orange-500'}`}>
+                                        {Math.round(event.prob_hate * 100)}%
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-900/50 p-4 rounded-xl mb-6 border border-slate-800">
+                                <p className="text-slate-200 text-sm leading-relaxed">
+                                    "{event.text ?? "No content available"}"
+                                </p>
+                            </div>
+
+                            <div className="flex space-x-3">
+                                <button 
+                                    onClick={() => handleDecision(event.id, false)}
+                                    className="flex-1 py-3 rounded-xl bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500 hover:text-white transition-all font-bold flex items-center justify-center"
+                                >
+                                    <Check size={18} className="mr-2" /> Mark Safe
+                                </button>
+                                <button 
+                                    onClick={() => handleDecision(event.id, true)}
+                                    className="flex-1 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all font-bold flex items-center justify-center"
+                                >
+                                    <X size={18} className="mr-2" /> Hate Speech
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+
+        {/* Pagination */}
+        <div className="flex justify-between items-center mt-4">
+            <button 
+              className={`px-4 py-2 rounded-lg text-xs font-medium ${hasReviewPrev ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-900 text-slate-600 cursor-not-allowed'}`}
+              onClick={handleReviewPrev}
+              disabled={!hasReviewPrev || reviewLoading}
+            >
+                Previous
+            </button>
+            <span className="text-xs text-slate-400">
+                Page {reviewPage + 1} of {reviewPageCount}
+            </span>
+            <button 
+              className={`px-4 py-2 rounded-lg text-xs font-medium ${hasReviewNext ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-900 text-slate-600 cursor-not-allowed'}`}
+              onClick={handleReviewNext}
+              disabled={!hasReviewNext || reviewLoading}
+            >
+                Next
+            </button>
+        </div>
+    </div>
+  );
+}
+
+// Admin Panel component
+function AdminPanel({ 
+  admins, 
+  handleAddAdmin, 
+  handleRemoveAdmin, 
+  testInput, 
+  setTestInput, 
+  handleRunTest, 
+  pending, 
+  testResult, 
+  userActions, 
+  userActionsLoading, 
+  refreshUserActions, 
+  resettingAction, 
+  handleResetUserAction 
+}: {
+  admins: AdminEntry[];
+  handleAddAdmin: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  handleRemoveAdmin: (userId: number) => Promise<void>;
+  testInput: string;
+  setTestInput: (input: string) => void;
+  handleRunTest: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  pending: boolean;
+  testResult: string;
+  userActions: UserActionSummary[];
+  userActionsLoading: boolean;
+  refreshUserActions: () => Promise<void>;
+  resettingAction: { userId: number; action: "warned" | "muted" } | null;
+  handleResetUserAction: (userId: number, action: "warned" | "muted") => Promise<void>;
+}) {
+  const [analysisResult, setAnalysisResult] = useState<{ category: string; score: number; reasoning: string } | null>(null);
+
+  const handleTestModel = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    await handleRunTest(e);
+    
+    // Parse the test result to extract category, score, and reasoning
+    if (testResult) {
+      const parts = testResult.split(' • ');
+      if (parts.length >= 3) {
+        const prediction = parts[2].replace('Prediksi: ', '');
+        const scoreMatch = parts[0].match(/Hate: ([\d.]+)/);
+        const score = scoreMatch ? parseFloat(scoreMatch[1]) * 100 : 0;
+        
+        setAnalysisResult({
+          category: prediction,
+          score,
+          reasoning: "Model analysis based on text patterns and content"
+        });
+      }
+    }
+  };
+
+  return (
+    <div className="p-4 pb-24 space-y-8 animate-fade-in">
+        
+        {/* Header */}
+        <div>
+            <h2 className="text-2xl font-bold text-white mb-1">Admin Access</h2>
+            <p className="text-sm text-slate-400">Manage permissions and model parameters</p>
+        </div>
+
+        {/* Admins List */}
+        <div className="glass-panel rounded-2xl p-1">
+            {admins.map(admin => (
+                <div key={admin.id} className="flex items-center justify-between p-3 border-b border-slate-700/50 last:border-0">
+                    <div>
+                        <div className="font-bold text-white text-sm">Admin {admin.id}</div>
+                        <div className="text-xs text-slate-500">ID: {admin.user_id}</div>
+                    </div>
+                    <button className="text-xs bg-slate-800 hover:bg-red-900/30 hover:text-red-400 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors" onClick={() => handleRemoveAdmin(admin.user_id)}>
+                        Remove
+                    </button>
+                </div>
+            ))}
+            <div className="p-2">
+                <form onSubmit={handleAddAdmin}>
+                    <div className="flex space-x-2">
+                        <input name="admin_id" placeholder="User ID" className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
+                        <button type="submit" className="px-3 py-2 bg-primary-600/20 text-primary-400 border border-primary-600/30 rounded-lg text-sm font-bold hover:bg-primary-600 hover:text-white transition-all">
+                            Add
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {/* AI Model Tester */}
+        <div className="glass-panel rounded-3xl p-5 border border-neon-purple/30 relative overflow-hidden">
+             <div className="absolute -top-10 -right-10 w-32 h-32 bg-neon-purple/20 blur-3xl rounded-full pointer-events-none"></div>
+             
+             <div className="flex items-center space-x-2 mb-4">
+                 <Zap className="text-neon-purple" size={20} />
+                 <h3 className="font-bold text-white">Moderation AI Tester</h3>
+             </div>
+
+             <form onSubmit={handleTestModel}>
+                <textarea
+                    value={testInput}
+                    onChange={(e) => setTestInput(e.target.value)}
+                    placeholder="Enter text to test the moderation model..."
+                    className="w-full bg-slate-900/80 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-neon-purple focus:ring-1 focus:ring-neon-purple transition-all min-h-[100px] mb-4"
+                />
+
+                <button 
+                    type="submit"
+                    disabled={pending}
+                    className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center transition-all ${pending ? 'bg-slate-700 cursor-not-allowed' : 'bg-gradient-to-r from-primary-600 to-purple-600 shadow-[0_0_15px_rgba(124,58,237,0.4)] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)]'}`}
+                >
+                     {pending ? <RefreshCcw className="animate-spin mr-2" size={18} /> : 'Analyze Text'}
+                </button>
+             </form>
+
+             {analysisResult && (
+                 <div className="mt-4 p-4 bg-slate-900 rounded-xl border border-slate-700 animate-fade-in">
+                     <div className="flex justify-between items-center mb-2">
+                         <span className="text-xs text-slate-400 uppercase tracking-wide">Category</span>
+                         <span className={`text-xs font-bold px-2 py-0.5 rounded ${analysisResult.score > 70 ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                             {analysisResult.category}
+                         </span>
+                     </div>
+                     <div className="flex justify-between items-center mb-3">
+                         <span className="text-xs text-slate-400 uppercase tracking-wide">Confidence Score</span>
+                         <div className="flex items-center">
+                             <div className="h-2 w-24 bg-slate-800 rounded-full mr-2 overflow-hidden">
+                                 <div 
+                                    className={`h-full ${analysisResult.score > 70 ? 'bg-red-500' : 'bg-green-500'}`} 
+                                    style={{width: `${analysisResult.score}%`}}
+                                 ></div>
+                             </div>
+                             <span className="text-sm font-mono font-bold text-white">{analysisResult.score.toFixed(1)}%</span>
+                         </div>
+                     </div>
+                     <p className="text-xs text-slate-300 italic border-t border-slate-800 pt-2 mt-2">
+                         "{analysisResult.reasoning}"
+                     </p>
+                 </div>
+             )}
+        </div>
+
+        {/* Muted Users Management */}
+        <div>
+            <h3 className="text-white font-bold mb-3">Active Penalties</h3>
+            
+            {userActionsLoading ? (
+              <div className="glass-panel p-4 rounded-2xl text-center text-slate-400">
+                Loading user actions...
+              </div>
+            ) : userActions.length === 0 ? (
+              <div className="glass-panel p-4 rounded-2xl text-center text-slate-400">
+                No active penalties
+              </div>
+            ) : (
+              userActions.map(user => (
+                  <div key={user.user_id} className="glass-panel p-4 rounded-2xl mb-3 border border-slate-800">
+                      <div className="flex justify-between items-start mb-4">
+                          <div>
+                              <div className="font-bold text-white">{user.username ?? user.user_id}</div>
+                              <div className="text-xs text-slate-500">ID: {user.user_id}</div>
+                          </div>
+                          <div className="flex space-x-1">
+                              <div className="px-2 py-1 bg-orange-500/20 text-orange-400 rounded text-[10px] font-bold border border-orange-500/20">
+                                  {user.warnings_today} Warns
+                              </div>
+                               <div className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-[10px] font-bold border border-purple-500/20">
+                                  {user.mutes_total} Mutes
+                              </div>
+                          </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                          <button 
+                            className="py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center"
+                            onClick={() => handleResetUserAction(user.user_id, "warned")}
+                            disabled={resettingAction?.userId === user.user_id && resettingAction?.action === "warned"}
+                          >
+                              <AlertOctagon size={14} className="mr-1.5" /> Reset Warning
+                          </button>
+                          <button 
+                            className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center"
+                            onClick={() => handleResetUserAction(user.user_id, "muted")}
+                            disabled={resettingAction?.userId === user.user_id && resettingAction?.action === "muted"}
+                          >
+                              <ShieldCheck size={14} className="mr-1.5" /> Unmute
+                          </button>
+                      </div>
+                  </div>
+              ))
+            )}
+        </div>
+    </div>
+  );
+}
+
+// StatCard component
+function StatCard({title, value, subtitle, icon: Icon, color, bg}: {
+  title: string, 
+  value: string, 
+  subtitle: string, 
+  icon: any, 
+  color: string, 
+  bg: string
+}) {
+  return (
+    <div className={`p-4 rounded-2xl bg-gradient-to-br ${bg} border border-slate-800 relative overflow-hidden`}>
+        <div className={`absolute top-3 right-3 opacity-20 ${color}`}>
+            <Icon size={24} />
+        </div>
+        <div className="relative z-10">
+            <h4 className="text-slate-400 text-xs font-medium mb-1">{title}</h4>
+            <div className="text-2xl font-bold text-white font-mono mb-1">{value}</div>
+            <div className="text-[10px] text-slate-500">{subtitle}</div>
+        </div>
     </div>
   );
 }
