@@ -219,34 +219,17 @@ const applyMute = async (
   username: string | undefined,
   durationMinutes = 10,
   reason = "Automatic moderation",
-) => {
-  const until = Math.floor(Date.now() / 1000) + durationMinutes * 60;
-  await bot.restrictChatMember(chatId, userId, { permissions: mutePermissions, until_date: until });
-  await upsertMemberModeration(chatId, {
-    user_id: userId,
-    username,
-    status: "muted",
-    duration_minutes: durationMinutes,
-    reason,
-  });
-};
-
-const applyMute = async (
-  bot: TelegramBot,
-  chatId: number,
-  userId: number,
-  username: string | undefined,
-  durationMinutes = 10,
-  reason = "Automatic moderation",
-  nowSeconds?: number, // 👈 tambahan
+  nowSeconds?: number,
 ) => {
   const base = typeof nowSeconds === "number" ? nowSeconds : Math.floor(Date.now() / 1000);
   const until = base + durationMinutes * 60;
 
-  await bot.restrictChatMember(chatId, userId, {
+  const options = {
     permissions: mutePermissions,
     until_date: until,
-  });
+  } as any;
+
+  await bot.restrictChatMember(chatId, userId, options);
 
   await upsertMemberModeration(chatId, {
     user_id: userId,
@@ -256,6 +239,23 @@ const applyMute = async (
     reason,
   });
 };
+
+const applyBan = async (
+  bot: TelegramBot,
+  chatId: number,
+  userId: number,
+  username: string | undefined,
+  reason = "Automatic moderation",
+) => {
+  await bot.banChatMember(chatId, userId);
+  await upsertMemberModeration(chatId, {
+    user_id: userId,
+    username,
+    status: "banned",
+    reason,
+  });
+};
+
 
 
 const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration) => {
@@ -792,15 +792,6 @@ const getNextModerationStep = (priorMuteCount: number): NextModeration => {
           moderationReason,
           msg.date, // 👈 pakai timestamp dari Telegram
         );
-      }
-
-
-
-      // Di grup biasa (bukan supergroup), Telegram tidak mengizinkan restrictChatMember.
-      // Jika seharusnya dimute, kita naikkan menjadi ban supaya moderasi tetap jalan.
-      if (msg.chat.type === "group" && moderationAction === "muted") {
-        moderationAction = "banned";
-        moderationReason = `${moderationReason} · (grup biasa tidak mendukung mute)`;
       }
 
       const notifyText = formatModerationMessage({
