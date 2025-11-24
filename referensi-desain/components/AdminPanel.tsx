@@ -8,6 +8,7 @@ import {
   fetchUserActions,
   resetUserAction,
   deleteMemberStatus,
+  runTest,
   AdminEntry,
   MemberModeration,
   UserActionSummary,
@@ -62,10 +63,15 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
   const handleTestModel = async () => {
     if (!testText.trim()) return;
     setLoadingTest(true);
-    setTimeout(() => {
-      setAnalysisResult("Integrasi model dinonaktifkan. Gunakan endpoint model Anda sendiri.");
+    try {
+      const res = await runTest(chatId, testText.trim());
+      setAnalysisResult(`Hate: ${(res.prob_hate * 100).toFixed(1)}% • Non-hate: ${(res.prob_nonhate * 100).toFixed(1)}% • Prediksi: ${res.label}`);
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+      else notify("Gagal menguji teks");
+    } finally {
       setLoadingTest(false);
-    }, 400);
+    }
   };
 
   const handleAddAdmin = async () => {
@@ -147,6 +153,18 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
     return [...mix(muted, "muted"), ...mix(banned, "banned")];
   }, [muted, banned, userActions]);
 
+  const usersList = useMemo(() => {
+    return userActions.map((u) => {
+      const bannedEntry = banned.find((b) => b.user_id === u.user_id);
+      const mutedEntry = muted.find((m) => m.user_id === u.user_id);
+      return {
+        ...u,
+        banned: Boolean(bannedEntry),
+        muted: Boolean(mutedEntry),
+      };
+    });
+  }, [userActions, banned, muted]);
+
   return (
     <div className="p-4 pb-24 space-y-8 animate-fade-in">
         
@@ -163,6 +181,11 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
                     <div>
                         <div className="font-bold text-white text-sm">Admin {admin.user_id}</div>
                         <div className="text-xs text-slate-500">ID: {admin.user_id}</div>
+                        {userActions.find((u) => u.user_id === admin.user_id)?.username && (
+                          <div className="text-xs text-slate-400">
+                            @{userActions.find((u) => u.user_id === admin.user_id)?.username}
+                          </div>
+                        )}
                     </div>
                     <button
                       disabled={pendingAction === `remove-${admin.user_id}`}
@@ -271,6 +294,74 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
                     </div>
                 </div>
             ))}
+        </div>
+
+        {/* User Actions Overview */}
+        <div className="glass-panel rounded-2xl p-4 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-white font-bold">User Actions</h3>
+            <button
+              onClick={load}
+              className="flex items-center space-x-1 text-xs text-slate-300 px-2 py-1 rounded-lg border border-slate-700 hover:border-primary-400"
+            >
+              <RefreshCw size={12} /> <span>Reload</span>
+            </button>
+          </div>
+          {loading && <p className="text-slate-400 text-sm">Memuat...</p>}
+          {!loading && usersList.length === 0 && <p className="text-slate-500 text-sm">Belum ada data pengguna.</p>}
+          <div className="space-y-2">
+            {usersList.map((u) => (
+              <div key={u.user_id} className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <div className="text-white font-bold text-sm">
+                      {u.username ? `@${u.username}` : `User ${u.user_id}`}
+                    </div>
+                    <div className="text-[11px] text-slate-500">ID: {u.user_id}</div>
+                  </div>
+                  <div className="flex space-x-1 text-[11px]">
+                    <span className="px-2 py-1 rounded bg-orange-500/15 text-orange-300 border border-orange-500/30">
+                      {u.warnings_today} Warn
+                    </span>
+                    <span className="px-2 py-1 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                      {u.mutes_total} Mute
+                    </span>
+                    {u.banned && (
+                      <span className="px-2 py-1 rounded bg-red-500/15 text-red-300 border border-red-500/30">
+                        Banned
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    disabled={pendingAction === `reset-${u.user_id}`}
+                    onClick={() => handleResetWarning(u.user_id)}
+                    className="py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                  >
+                    <AlertOctagon size={14} className="mr-1.5" /> Reset Warning
+                  </button>
+                  {u.banned ? (
+                    <button
+                      disabled={pendingAction === `unban-${u.user_id}`}
+                      onClick={() => handleUnban(u.user_id)}
+                      className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                    >
+                      <ShieldCheck size={14} className="mr-1.5" /> Unban
+                    </button>
+                  ) : (
+                    <button
+                      disabled={pendingAction === `unmute-${u.user_id}`}
+                      onClick={() => handleUnmute(u.user_id)}
+                      className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                    >
+                      <ShieldCheck size={14} className="mr-1.5" /> Unmute
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
     </div>
