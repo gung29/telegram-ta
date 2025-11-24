@@ -107,8 +107,15 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
   const handleExport = async () => {
     setExporting(true);
     try {
-      await exportCsv(chatId);
-      notify("Export dimulai (periksa unduhan)"); // sesuai gaya minimal
+      const blob = await exportCsv(chatId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `hate_guard_logs_${chatId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       notify((err as Error).message ?? "Gagal mengunduh CSV");
     } finally {
