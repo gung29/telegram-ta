@@ -69,11 +69,10 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
   }, [aggregated]);
 
   const totals = useMemo(() => {
-    const days = windowKey === "24h" ? 1 : windowKey === "7d" ? 7 : 30;
     const total = aggregated.total || 0;
-    const avgPerDay = days ? Math.round(total / days) : total;
+    const warnRate = total ? Math.round((aggregated.warn / total) * 100) : 0;
     const peak = chartData.length ? Math.max(...chartData.map((d) => d.total ?? 0)) : 0;
-    return { total, avgPerDay, peak };
+    return { total, warnRate, peak };
   }, [aggregated, stats, chartData, windowKey]);
 
   const topOffenders = useMemo(() => {
@@ -121,8 +120,8 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
                 <p className="text-white text-lg font-bold">{totals.total}</p>
               </div>
               <div className="p-2 bg-slate-800/60 rounded-lg border border-slate-700">
-                <p className="text-slate-400">Avg/day</p>
-                <p className="text-white text-lg font-bold">{totals.avgPerDay}</p>
+                <p className="text-slate-400">% Warned</p>
+                <p className="text-white text-lg font-bold">{totals.warnRate}%</p>
               </div>
               <div className="p-2 bg-slate-800/60 rounded-lg border border-slate-700">
                 <p className="text-slate-400">Peak</p>
@@ -166,8 +165,11 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
               <BarChart data={actionDistribution}>
                 <XAxis dataKey="name" stroke="#475569" fontSize={11} axisLine={false} tickLine={false} />
                 <YAxis stroke="#475569" fontSize={11} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: 10 }} />
-                <Legend />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: 10 }}
+                  formatter={(value: number, _name: string, entry: any) => [value, entry?.payload?.name]}
+                  labelStyle={{ color: '#e5e7eb' }}
+                />
                 <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                   {actionDistribution.map((entry, idx) => (
                     <Cell key={`bar-${idx}`} fill={entry.color} />
