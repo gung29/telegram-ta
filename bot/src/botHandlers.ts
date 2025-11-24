@@ -124,27 +124,39 @@ const notifyAdminOnly = async (bot: TelegramBot, msg: TelegramBot.Message) => {
 const trackedChats = new Set<number>();
 const groupSyncCache = new TTLCache<boolean>(60 * 60 * 1000);
 
-const mutePermissions = {
+const mutePermissions: TelegramBot.ChatPermissions = {
   can_send_messages: false,
-  can_send_media_messages: false,
+  can_send_audios: false,
+  can_send_documents: false,
+  can_send_photos: false,
+  can_send_videos: false,
+  can_send_video_notes: false,
+  can_send_voice_notes: false,
   can_send_polls: false,
   can_send_other_messages: false,
   can_add_web_page_previews: false,
   can_change_info: false,
   can_invite_users: false,
   can_pin_messages: false,
-} as TelegramBot.ChatPermissions;
+  can_manage_topics: false,
+};
 
-const defaultPermissions = {
+const defaultPermissions: TelegramBot.ChatPermissions = {
   can_send_messages: true,
-  can_send_media_messages: true,
+  can_send_audios: true,
+  can_send_documents: true,
+  can_send_photos: true,
+  can_send_videos: true,
+  can_send_video_notes: true,
+  can_send_voice_notes: true,
   can_send_polls: true,
   can_send_other_messages: true,
   can_add_web_page_previews: true,
   can_change_info: false,
   can_invite_users: true,
   can_pin_messages: false,
-} as TelegramBot.ChatPermissions;
+  can_manage_topics: true,
+};
 
 const LOCAL_TIMEZONE = "Asia/Singapore";
 const WARN_LIMIT_PER_DAY = 3;
@@ -223,6 +235,7 @@ const releaseManualStatus = async (bot: TelegramBot, chatId: number, userId: num
     if (status === "muted") {
       await bot.restrictChatMember(chatId, userId, {
         permissions: defaultPermissions,
+        use_independent_chat_permissions: true,
         // until_date = 0 menghapus batas waktu lama dan benar-benar meng-unmute
         until_date: 0,
       } as any);
@@ -272,6 +285,7 @@ const applyMute = async (
     userId,
     {
       permissions: mutePermissions,
+      use_independent_chat_permissions: true,
       until_date: untilUtcSeconds,
     } as any,
   );
@@ -310,6 +324,7 @@ const applyBan = async (
 const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration) => {
   await bot.restrictChatMember(chatId, member.user_id, {
     permissions: defaultPermissions,
+    use_independent_chat_permissions: true,
     until_date: 0,
   } as any);
   await removeMemberModeration(chatId, member.user_id, member.status);
@@ -355,7 +370,11 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
           }
 
           const until = member.expires_at ? Math.floor(new Date(member.expires_at).getTime() / 1000) : undefined;
-          await bot.restrictChatMember(chatId, member.user_id, { permissions: mutePermissions, until_date: until });
+          await bot.restrictChatMember(
+            chatId,
+            member.user_id,
+            { permissions: mutePermissions, use_independent_chat_permissions: true, until_date: until } as any,
+          );
         } else if (member.status === "banned") {
           if (member.expires_at && new Date(member.expires_at).getTime() <= now) {
             await releaseBanIfExpired(bot, chatId, member);
