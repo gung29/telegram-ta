@@ -35,23 +35,13 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
     load();
   }, [chatId, windowKey]);
 
+  // gunakan sumber utama dari stats; fallback ke activity jika tersedia saja
   const aggregated = useMemo(() => {
-    let warn = 0;
-    let deleted = 0;
-    let blocked = 0;
-    if (activity?.points?.length) {
-      activity.points.forEach((p) => {
-        warn += p.warned ?? 0;
-        deleted += p.deleted ?? 0;
-        blocked += p.blocked ?? 0;
-      });
-    } else if (stats) {
-      warn = stats.warned ?? 0;
-      deleted = stats.deleted ?? 0;
-      blocked = stats.blocked ?? 0;
-    }
+    const warn = stats?.warned ?? (activity?.points ?? []).reduce((a, p) => a + (p.warned ?? 0), 0);
+    const deleted = stats?.deleted ?? (activity?.points ?? []).reduce((a, p) => a + (p.deleted ?? 0), 0);
+    const blocked = stats?.blocked ?? (activity?.points ?? []).reduce((a, p) => a + (p.blocked ?? 0), 0);
     return { warn, deleted, blocked, total: warn + deleted + blocked };
-  }, [activity, stats]);
+  }, [stats, activity]);
 
   const chartData = useMemo(() => {
     if (!activity) return [];
@@ -68,15 +58,6 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
       };
     });
   }, [activity, windowKey]);
-
-  const pieData = useMemo(() => {
-    const items = [
-      { name: "Warned", value: aggregated.warn, color: "#f59e0b" },
-      { name: "Blocked", value: aggregated.blocked, color: "#ef4444" },
-      { name: "Deleted", value: aggregated.deleted, color: "#6366f1" },
-    ].filter((d) => d.value > 0);
-    return items.length ? items : [{ name: "No data", value: 1, color: "#475569" }];
-  }, [aggregated]);
 
   const actionDistribution = useMemo(() => {
     return [
@@ -171,50 +152,6 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
                         <Area type="monotone" dataKey="block" stroke="#ef4444" strokeWidth={2} fillOpacity={0} fill="transparent" />
                     </AreaChart>
                 </ResponsiveContainer>
-            </div>
-        </div>
-
-        <div className="glass-panel p-5 rounded-3xl border border-slate-700/50 flex items-center justify-between">
-            <div className="w-1/2">
-                <h3 className="text-white font-bold mb-4">Action<br/>Composition</h3>
-                <div className="space-y-2">
-                    {pieData.map((entry) => (
-                        <div key={entry.name} className="flex items-center justify-between text-xs">
-                             <div className="flex items-center">
-                                 <div className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: entry.color }}></div>
-                                 <span className="text-slate-300">{entry.name}</span>
-                             </div>
-                             <span className="font-mono text-white">{entry.value}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            <div className="w-1/2 h-32 relative">
-                <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                        <Pie
-                            data={pieData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={30}
-                            outerRadius={55}
-                            paddingAngle={5}
-                            dataKey="value"
-                            stroke="none"
-                            >
-                            {pieData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value: number, name: string) => [`${value}`, name]}
-                          contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '10px' }}
-                        />
-                    </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                   <span className="text-xs font-bold text-slate-500">Total</span> 
-                </div>
             </div>
         </div>
 
