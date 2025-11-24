@@ -646,8 +646,10 @@ export const registerHandlers = (bot: TelegramBot) => {
       const rapidOffenses = incrementOffense(msg.chat.id, msg.from.id);
       const dailyOffenses = await incrementDailyOffense(msg.chat.id, msg.from.id);
       const severity = prediction.prob_hate - threshold;
-      if (dailyOffenses < 5) {
-        const warningReason = `Peringatan ke-${dailyOffenses} hari ini (batas 4)`;
+
+      // Warn sampai 3 kali, mulai pelanggaran ke-4 langsung moderasi
+      if (dailyOffenses <= 3) {
+        const warningReason = `Peringatan ke-${dailyOffenses} hari ini (batas 3)`;
         await persistEvent({
           ...baseEvent,
           action: "warned",
@@ -673,7 +675,7 @@ export const registerHandlers = (bot: TelegramBot) => {
 
       let moderationAction: "muted" | "banned" = "muted";
       let muteDuration = severity >= 0.2 ? 45 : 20;
-      let moderationReason = severity >= 0.2 ? "Auto mute (tingkat tinggi)" : "Auto mute (5 pelanggaran)";
+      let moderationReason = severity >= 0.2 ? "Auto mute (tingkat tinggi)" : "Auto mute (pelanggaran berulang)";
 
       if (rapidOffenses > 1) {
         muteDuration = Math.min(180, muteDuration + (rapidOffenses - 1) * 5);
