@@ -19,15 +19,6 @@ import {
   HttpError,
 } from "./lib/api";
 
-const THRESHOLD_MIN = 0.2;
-const THRESHOLD_MAX = 0.95;
-type ModeSelection = SettingsResponse["mode"] | "custom";
-const MODE_PRESETS: Record<SettingsResponse["mode"], number> = {
-  precision: 0.561,
-  balanced: 0.561,
-  recall: 0.384,
-};
-
 function App() {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
   const [chatId, setChatId] = useState<number | null>(null);
@@ -39,25 +30,12 @@ function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [thresholdState, setThresholdState] = useState<Record<number, { value: number; mode: ModeSelection }>>({});
-  const [retentionDraft, setRetentionDraft] = useState<number | null>(null);
 
   const notify = (msg: string) => {
     if (typeof window !== "undefined") alert(msg);
   };
 
   const manualMode = settings ? !settings.enabled : false;
-
-  const currentThresholdState = chatId ? thresholdState[chatId] : undefined;
-  const derivedModeFromSettings: ModeSelection = useMemo(() => {
-    if (!settings) return "balanced";
-    const preset = MODE_PRESETS[settings.mode];
-    return Math.abs(settings.threshold - preset) > 0.005 ? "custom" : settings.mode;
-  }, [settings]);
-
-  const modeSelection: ModeSelection = currentThresholdState?.mode ?? derivedModeFromSettings;
-  const thresholdPreview = currentThresholdState?.value ?? settings?.threshold ?? 0.62;
-  const retentionValue = retentionDraft ?? settings?.retention_days ?? 30;
 
   const liveActivity = useMemo(() => {
     return events.slice(0, 3).map((ev) => {
@@ -101,15 +79,6 @@ function App() {
         fetchEvents(selectedChat, 5, 0),
       ]);
       setSettings(s);
-      setRetentionDraft(s.retention_days);
-      setThresholdState((prev) => ({
-        ...prev,
-        [selectedChat]: {
-          value: s.threshold,
-          mode:
-            Math.abs(s.threshold - MODE_PRESETS[s.mode]) > 0.005 ? "custom" : (s.mode as ModeSelection),
-        },
-      }));
       setStats(st);
       setEvents(evs);
       setLastUpdated(new Date());
@@ -160,63 +129,15 @@ function App() {
     return () => clearInterval(timer);
   }, [autoRefresh, chatId]);
 
-  const handleSettingsUpdate = async (payload: Partial<SettingsResponse>) => {
-    if (!chatId) return;
-    try {
-      const updated = await updateSettings(chatId, payload);
-      setSettings(updated);
-      setRetentionDraft(updated.retention_days);
-    } catch (err) {
-      if (err instanceof HttpError) notify((err as Error).message ?? "Gagal menyimpan pengaturan");
-    }
-  };
-
   const handleToggleMode = async () => {
     if (!chatId || !settings) return;
     const next = !settings.enabled;
-    await handleSettingsUpdate({ enabled: next });
-  };
-
-  const handleModeSelect = async (mode: SettingsResponse["mode"]) => {
-    if (!chatId) return;
-    const preset = MODE_PRESETS[mode];
-    const clamped = Math.min(
-      THRESHOLD_MAX,
-      Math.max(THRESHOLD_MIN, preset ?? (settings?.threshold ?? 0.62)),
-    );
-    setThresholdState((prev) => ({ ...prev, [chatId]: { value: clamped, mode } }));
-    const value = Number(clamped.toFixed(2));
-    await handleSettingsUpdate({ mode, threshold: value });
-  };
-
-  const handleThresholdPreviewChange = (value: number) => {
-    if (!chatId) return;
-    setThresholdState((prev) => ({
-      ...prev,
-      [chatId]: {
-        value,
-        mode: "custom",
-      },
-    }));
-  };
-
-  const commitThreshold = async () => {
-    if (!settings || !chatId) return;
-    const state = thresholdState[chatId];
-    if (!state) return;
-    if (Math.abs(state.value - settings.threshold) < 0.001) return;
-    const value = Number(state.value.toFixed(2));
-    await handleSettingsUpdate({ threshold: value });
-    setThresholdState((prev) => ({ ...prev, [chatId]: { ...state, value } }));
-  };
-
-  const handleRetentionDraftChange = (value: number) => {
-    setRetentionDraft(value);
-  };
-
-  const commitRetention = async () => {
-    if (!settings || retentionDraft === null || retentionDraft === settings.retention_days) return;
-    await handleSettingsUpdate({ retention_days: retentionDraft });
+    try {
+      const updated = await updateSettings(chatId, { enabled: next });
+      setSettings(updated);
+    } catch (err) {
+      if (err instanceof HttpError) notify(err.message);
+    }
   };
 
   const lastUpdateText = lastUpdated ? `Updated ${Math.max(0, Math.floor((Date.now() - lastUpdated.getTime()) / 1000))}s ago` : "Just now";
@@ -244,16 +165,6 @@ function App() {
             onSelectGroup={(id) => setChatId(id)}
             metrics={metrics}
             liveActivity={liveActivity}
-            modeSelection={modeSelection}
-            thresholdPreview={thresholdPreview}
-            thresholdMin={THRESHOLD_MIN}
-            thresholdMax={THRESHOLD_MAX}
-            onModeSelect={handleModeSelect}
-            onThresholdChange={handleThresholdPreviewChange}
-            onThresholdCommit={commitThreshold}
-            retentionDays={retentionValue}
-            onRetentionChange={handleRetentionDraftChange}
-            onRetentionCommit={commitRetention}
           />
         );
       case View.STATS:
