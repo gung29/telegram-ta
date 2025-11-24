@@ -35,24 +35,25 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
     load();
   }, [chatId, windowKey]);
 
-  // gunakan sumber utama dari stats; fallback ke activity jika tersedia saja
+  // gunakan angka agregat langsung dari StatsResponse untuk ringkasan/distribusi
   const aggregated = useMemo(() => {
-    const warn = stats?.warned ?? (activity?.points ?? []).reduce((a, p) => a + (p.warned ?? 0), 0);
-    const deleted = stats?.deleted ?? (activity?.points ?? []).reduce((a, p) => a + (p.deleted ?? 0), 0);
-    const blocked = stats?.blocked ?? (activity?.points ?? []).reduce((a, p) => a + (p.blocked ?? 0), 0);
-    return { warn, deleted, blocked, total: warn + deleted + blocked };
-  }, [stats, activity]);
+    const warn = stats?.warned ?? 0;
+    const deleted = stats?.deleted ?? 0;
+    const blocked = stats?.blocked ?? 0;
+    const total = stats?.total_events ?? deleted; // jika total_events ada, ikuti API
+    return { warn, deleted, blocked, total };
+  }, [stats]);
 
   const chartData = useMemo(() => {
     if (!activity) return [];
     return activity.points.map((p) => {
       const label = dayjs(p.date).isValid() ? dayjs(p.date).format(windowKey === "24h" ? "DD MMM HH:mm" : "DD MMM") : "";
-      const warn = p.warned ?? 0;
       const del = p.deleted ?? 0;
+      const warn = p.warned ?? 0;
       const block = p.blocked ?? 0;
       return {
         name: label,
-        total: warn + del + block,
+        total: del, // total harian mengikuti field deleted (sesuai API)
         warn,
         block,
       };
@@ -69,7 +70,7 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
 
   const totals = useMemo(() => {
     const days = windowKey === "24h" ? 1 : windowKey === "7d" ? 7 : 30;
-    const total = aggregated.total || stats?.total_events || 0;
+    const total = aggregated.total || 0;
     const avgPerDay = days ? Math.round(total / days) : total;
     const peak = chartData.length ? Math.max(...chartData.map((d) => d.total ?? 0)) : 0;
     return { total, avgPerDay, peak };
