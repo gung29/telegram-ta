@@ -48,6 +48,7 @@ from common.schemas import (
     ActionResetPayload,
     PermissionCheckPayload,
     PermissionCheckResult,
+    UnrestrictPayload,
 )
 
 from .model_loader import classifier
@@ -67,6 +68,22 @@ PREDICTION_LATENCY = Histogram("hate_guard_prediction_latency_seconds", "Latency
 API_HEALTH = Gauge("hate_guard_api_status", "API health flag", multiprocess_mode="livesum")
 EPOCH_START = datetime(1970, 1, 1, tzinfo=LOCAL_TIMEZONE)
 TELEGRAM_API_BASE = f"https://api.telegram.org/bot{app_settings.bot_token}"
+ALLOW_PERMISSIONS: Dict[str, bool] = {
+    "can_send_messages": True,
+    "can_send_audios": True,
+    "can_send_documents": True,
+    "can_send_photos": True,
+    "can_send_videos": True,
+    "can_send_video_notes": True,
+    "can_send_voice_notes": True,
+    "can_send_polls": True,
+    "can_send_other_messages": True,
+    "can_add_web_page_previews": True,
+    "can_change_info": False,
+    "can_invite_users": True,
+    "can_pin_messages": False,
+    "can_manage_topics": True,
+}
 
 ACTION_IGNORE = {"allowed", "bypassed_admin"}
 ACTION_WARNED = {"warned", "muted"}
@@ -145,6 +162,35 @@ def _fetch_member_permission(chat_id: int, user_id: int) -> PermissionCheckResul
     status = result.get("status", "unknown")
     can_send = bool(result.get("can_send_messages", True))
     return PermissionCheckResult(user_id=user_id, status=status, can_send_messages=can_send)
+
+
+def _unrestrict_member(chat_id: int, user_id: int) -> None:
+    payload = {
+        "chat_id": chat_id,
+        "user_id": user_id,
+        "permissions": ALLOW_PERMISSIONS,
+        "use_independent_chat_permissions": True,
+        "until_date": 0,
+    }
+    try:
+        resp = httpx.post(f"{TELEGRAM_API_BASE}/restrictChatMember", json=payload, timeout=5.0)
+        data = resp.json()
+    except httpx.RequestError as exc:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram unreachable: {exc}") from exc
+    except ValueError as exc:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid response from Telegram") from exc
+
+    if not data.get("ok"):
+        detail = data.get("description") or data
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Gagal unrestrict: {detail}")
+
+    # fallback: unban to clear lingering restrict
+    httpx.post(f"{TELEGRAM_API_BASE}/unbanChatMember", json={"chat_id": chat_id, "user_id": user_id, "only_if_banned": False}, timeout=5.0)
+
+    # verify
+    result = _fetch_member_permission(chat_id, user_id)
+    if not result.can_send_messages:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="User masih restricted setelah unmute")
 
 
 def _normalize_day(value: Union[str, datetime, date]) -> date:
@@ -546,6 +592,26 @@ def permissions_check_endpoint(
             continue
         results.append(_fetch_member_permission(chat_id, int(user_id)))
     return results
+
+
+@app.post("/admin/groups/{chat_id}/unrestrict")
+def unrestrict_member_endpoint(
+    chat_id: int,
+    payload: UnrestrictPayload,
+    _: None = Depends(require_api_key),
+    db: Session = Depends(get_db),
+):
+    _require_group_chat(chat_id)
+    _get_or_create_settings(db, chat_id)
+    _unrestrict_member(chat_id, payload.user_id)
+    # bersihkan record jika ada
+    db.query(MemberModeration).filter(
+        MemberModeration.chat_id == chat_id,
+        MemberModeration.user_id == payload.user_id,
+        MemberModeration.status == MemberStatus.muted,
+    ).delete()
+    db.commit()
+    return {"status": "ok"}
 
 
 @app.get("/admin/activity/{chat_id}", response_model=ActivityResponse)

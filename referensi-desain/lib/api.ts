@@ -247,3 +247,9 @@ export const checkPermissions = (chatId: number, userIds: number[]) =>
     method: "POST",
     body: JSON.stringify({ user_ids: userIds }),
   });
+
+export const unrestrictMember = (chatId: number, userId: number) =>
+  baseFetch(`/api/unrestrict?${qs({ chat_id: chatId })}`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });

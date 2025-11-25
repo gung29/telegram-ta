@@ -15,6 +15,7 @@ import {
   HttpError,
   PermissionCheckResult,
   checkPermissions,
+  unrestrictMember,
 } from "../lib/api";
 
 type Props = { chatId: number };
@@ -142,10 +143,18 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
     }
   };
 
-  const handleUnmute = async (userId: number) => {
+const handleUnmute = async (userId: number) => {
   setPendingAction(`unmute-${userId}`);
   try {
-    await deleteMemberStatus(chatId, userId, "muted"); // 👈 pakai DELETE
+    try {
+      await deleteMemberStatus(chatId, userId, "muted"); // 👈 pakai DELETE
+    } catch (err) {
+      if (err instanceof HttpError && err.status === 404) {
+        await unrestrictMember(chatId, userId); // fallback untuk user yang tersangkut tanpa record backend
+      } else {
+        throw err;
+      }
+    }
     await load();
   } catch (err) {
     if (err instanceof HttpError) notify(err.message);

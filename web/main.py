@@ -237,6 +237,13 @@ async def api_permissions_check(chat_id: int, payload: Dict[str, Any], ctx: Dict
     return await proxy_core_api("POST", f"/admin/groups/{chat_id}/permissions_check", json_data=payload)
 
 
+@app.post("/api/unrestrict")
+async def api_unrestrict(chat_id: int, payload: Dict[str, Any], ctx: Dict[str, Any] = Depends(get_context)):
+    await ensure_admin_access(chat_id, ctx)
+    _assert_chat_access(ctx, chat_id)
+    return await proxy_core_api("POST", f"/admin/groups/{chat_id}/unrestrict", json_data=payload)
+
+
 @app.get("/api/activity")
 async def api_activity(chat_id: int, days: int = 7, ctx: Dict[str, Any] = Depends(get_context)):
     await ensure_admin_access(chat_id, ctx)

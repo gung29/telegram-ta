@@ -175,3 +175,7 @@ class PermissionCheckResult(BaseModel):
     user_id: int
     status: str
     can_send_messages: bool
+
+
+class UnrestrictPayload(BaseModel):
+    user_id: int
