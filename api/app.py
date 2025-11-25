@@ -165,37 +165,27 @@ def _fetch_member_permission(chat_id: int, user_id: int) -> PermissionCheckResul
 
 
 def _unrestrict_member(chat_id: int, user_id: int) -> None:
-    payload = {
-        "chat_id": chat_id,
-        "user_id": user_id,
-        "permissions": ALLOW_PERMISSIONS,
-        "use_independent_chat_permissions": True,
-        "until_date": 0,
-    }
-    try:
+    def _call(use_independent: bool) -> None:
+        payload = {
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "permissions": ALLOW_PERMISSIONS,
+            "use_independent_chat_permissions": use_independent,
+            "until_date": 0,
+        }
         resp = httpx.post(f"{TELEGRAM_API_BASE}/restrictChatMember", json=payload, timeout=5.0)
         data = resp.json()
+        if not data.get("ok"):
+            detail = data.get("description") or data
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Gagal unrestrict: {detail}")
+
+    try:
+        _call(True)
+        _call(False)
     except httpx.RequestError as exc:  # noqa: BLE001
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram unreachable: {exc}") from exc
     except ValueError as exc:  # noqa: BLE001
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid response from Telegram") from exc
-
-    if not data.get("ok"):
-        detail = data.get("description") or data
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Gagal unrestrict: {detail}")
-
-    # fallback unban hanya jika benar-benar status kick/banned
-    try:
-        state = _fetch_member_permission(chat_id, user_id)
-        if state.status == "kicked":
-            httpx.post(
-                f"{TELEGRAM_API_BASE}/unbanChatMember",
-                json={"chat_id": chat_id, "user_id": user_id, "only_if_banned": True},
-                timeout=5.0,
-            )
-    except HTTPException:
-        # kalau gagal cek status, lanjut ke verifikasi di bawah
-        pass
 
     # verify
     result = _fetch_member_permission(chat_id, user_id)

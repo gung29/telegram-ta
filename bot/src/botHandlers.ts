@@ -293,12 +293,12 @@ const liftRestrictions = async (bot: TelegramBot, chatId: number, userId: number
 
   const state = await bot.getChatMember(chatId, userId);
   if (!hasSendAccess(state)) {
-    // fallback: try once more with chat permissions only
+    // fallback: retry with merged perms + non-independent to avoid missing flags
     await bot.restrictChatMember(
       chatId,
       userId,
       {
-        permissions: chatPerms,
+        permissions: mergedPerms,
         use_independent_chat_permissions: false,
         until_date: 0,
       } as any,
