@@ -187,7 +187,7 @@ const resolveChatPermissions = async (bot: TelegramBot, chatId: number): Promise
 const hasSendAccess = (member: TelegramBot.ChatMember | undefined) => {
   if (!member) return false;
   if (member.status === "kicked" || member.status === "left") return false;
-  const perms = (member as TelegramBot.ChatMemberRestricted).permissions;
+  const perms = (member as TelegramBot.ChatMember & { permissions?: TelegramBot.ChatPermissions }).permissions;
   if (!perms) return member.status !== "restricted";
   return PERMISSION_KEYS.every((key) => perms[key] !== false);
 };
