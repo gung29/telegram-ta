@@ -165,3 +165,13 @@ class UserActionSummary(BaseModel):
 
 class ActionResetPayload(BaseModel):
     action: Literal["warned", "muted"]
+
+
+class PermissionCheckPayload(BaseModel):
+    user_ids: List[int] = Field(default_factory=list)
+
+
+class PermissionCheckResult(BaseModel):
+    user_id: int
+    status: str
+    can_send_messages: bool

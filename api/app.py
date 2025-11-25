@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from sqlalchemy import case, desc, func
 from sqlalchemy.orm import Session
+import httpx
 
 from common.config import settings as app_settings
 from common.database import get_db
@@ -45,6 +46,8 @@ from common.schemas import (
     StatsResponse,
     UserActionSummary,
     ActionResetPayload,
+    PermissionCheckPayload,
+    PermissionCheckResult,
 )
 
 from .model_loader import classifier
@@ -63,6 +66,7 @@ PREDICTION_COUNTER = Counter("hate_guard_predictions_total", "Total number of pr
 PREDICTION_LATENCY = Histogram("hate_guard_prediction_latency_seconds", "Latency of prediction endpoint")
 API_HEALTH = Gauge("hate_guard_api_status", "API health flag", multiprocess_mode="livesum")
 EPOCH_START = datetime(1970, 1, 1, tzinfo=LOCAL_TIMEZONE)
+TELEGRAM_API_BASE = f"https://api.telegram.org/bot{app_settings.bot_token}"
 
 ACTION_IGNORE = {"allowed", "bypassed_admin"}
 ACTION_WARNED = {"warned", "muted"}
@@ -116,6 +120,31 @@ def _serialize_group(settings_row: GroupSettings) -> GroupSummary:
 def _require_group_chat(chat_id: int) -> None:
     if chat_id >= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="chat_id harus berupa ID grup Telegram (negatif)")
+
+
+def _fetch_member_permission(chat_id: int, user_id: int) -> PermissionCheckResult:
+    try:
+        response = httpx.get(
+            f"{TELEGRAM_API_BASE}/getChatMember",
+            params={"chat_id": chat_id, "user_id": user_id},
+            timeout=5.0,
+        )
+    except httpx.RequestError as exc:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram unreachable: {exc}") from exc
+
+    try:
+        payload = response.json()
+    except ValueError as exc:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid response from Telegram") from exc
+
+    if not payload.get("ok"):
+        detail = payload.get("description") or payload
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram error: {detail}")
+
+    result = payload.get("result") or {}
+    status = result.get("status", "unknown")
+    can_send = bool(result.get("can_send_messages", True))
+    return PermissionCheckResult(user_id=user_id, status=status, can_send_messages=can_send)
 
 
 def _normalize_day(value: Union[str, datetime, date]) -> date:
@@ -501,6 +530,22 @@ def remove_member_moderation(
     if not deleted:
         raise HTTPException(status_code=404, detail="Member status not found")
     return {"status": "ok"}
+
+
+@app.post("/admin/groups/{chat_id}/permissions_check", response_model=List[PermissionCheckResult])
+def permissions_check_endpoint(
+    chat_id: int,
+    payload: PermissionCheckPayload,
+    _: None = Depends(require_api_key),
+):
+    _require_group_chat(chat_id)
+    results: List[PermissionCheckResult] = []
+    for user_id in payload.user_ids:
+        # skip invalid ids to avoid Telegram errors
+        if not isinstance(user_id, int):
+            continue
+        results.append(_fetch_member_permission(chat_id, int(user_id)))
+    return results
 
 
 @app.get("/admin/activity/{chat_id}", response_model=ActivityResponse)

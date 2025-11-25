@@ -230,6 +230,13 @@ async def api_member_remove(user_id: int, chat_id: int, status: str, ctx: Dict[s
     return await proxy_core_api("DELETE", f"/admin/groups/{chat_id}/members/{user_id}", params={"status": status})
 
 
+@app.post("/api/permissions_check")
+async def api_permissions_check(chat_id: int, payload: Dict[str, Any], ctx: Dict[str, Any] = Depends(get_context)):
+    await ensure_admin_access(chat_id, ctx)
+    _assert_chat_access(ctx, chat_id)
+    return await proxy_core_api("POST", f"/admin/groups/{chat_id}/permissions_check", json_data=payload)
+
+
 @app.get("/api/activity")
 async def api_activity(chat_id: int, days: int = 7, ctx: Dict[str, Any] = Depends(get_context)):
     await ensure_admin_access(chat_id, ctx)

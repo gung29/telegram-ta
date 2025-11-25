@@ -128,6 +128,12 @@ export interface UserActionSummary {
   last_mute?: string | null;
 }
 
+export interface PermissionCheckResult {
+  user_id: number;
+  status: string;
+  can_send_messages: boolean;
+}
+
 const qs = (params: Record<string, string | number>) =>
   new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
 
@@ -235,3 +241,9 @@ export const exportCsv = async (chatId: number) => {
   const blob = await response.blob();
   return blob;
 };
+
+export const checkPermissions = (chatId: number, userIds: number[]) =>
+  baseFetch<PermissionCheckResult[]>(`/api/permissions_check?${qs({ chat_id: chatId })}`, {
+    method: "POST",
+    body: JSON.stringify({ user_ids: userIds }),
+  });

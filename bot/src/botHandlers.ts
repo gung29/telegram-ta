@@ -31,10 +31,13 @@ const dailyOffenseMap: Map<string, { count: number; day: string }> = new Map();
 const muteCountCache = new TTLCache<number>(30 * 24 * 60 * 60 * 1000);
 const manualStatusCache = new Map<number, Map<number, MemberStatus>>();
 
-const PERMISSION_KEYS: Array<keyof TelegramBot.ChatPermissions> = [
+type ExtendedPermissions = TelegramBot.ChatPermissions & { can_send_media_messages?: boolean };
+
+const PERMISSION_KEYS: Array<keyof ExtendedPermissions> = [
   "can_send_messages",
   "can_send_audios",
   "can_send_documents",
+  "can_send_media_messages",
   "can_send_photos",
   "can_send_videos",
   "can_send_video_notes",
@@ -142,6 +145,7 @@ const mutePermissions: TelegramBot.ChatPermissions = {
   can_send_messages: false,
   can_send_audios: false,
   can_send_documents: false,
+  can_send_media_messages: false,
   can_send_photos: false,
   can_send_videos: false,
   can_send_video_notes: false,
@@ -153,12 +157,13 @@ const mutePermissions: TelegramBot.ChatPermissions = {
   can_invite_users: false,
   can_pin_messages: false,
   can_manage_topics: false,
-};
+} as ExtendedPermissions;
 
-const defaultPermissions: TelegramBot.ChatPermissions = {
+const allowPermissions: TelegramBot.ChatPermissions = {
   can_send_messages: true,
   can_send_audios: true,
   can_send_documents: true,
+  can_send_media_messages: true,
   can_send_photos: true,
   can_send_videos: true,
   can_send_video_notes: true,
@@ -170,13 +175,15 @@ const defaultPermissions: TelegramBot.ChatPermissions = {
   can_invite_users: true,
   can_pin_messages: false,
   can_manage_topics: true,
-};
+} as ExtendedPermissions;
 
-const resolveChatPermissions = async (bot: TelegramBot, chatId: number): Promise<TelegramBot.ChatPermissions> => {
+const defaultPermissions = allowPermissions;
+
+const resolveChatPermissions = async (bot: TelegramBot, chatId: number): Promise<ExtendedPermissions> => {
   try {
     const chat = await bot.getChat(chatId);
     if (chat?.permissions) {
-      return chat.permissions;
+      return chat.permissions as ExtendedPermissions;
     }
   } catch (error) {
     logger.warn({ err: error, chatId }, "Failed to resolve chat permissions, using default");
@@ -187,7 +194,7 @@ const resolveChatPermissions = async (bot: TelegramBot, chatId: number): Promise
 const hasSendAccess = (member: TelegramBot.ChatMember | undefined) => {
   if (!member) return false;
   if (member.status === "kicked" || member.status === "left") return false;
-  const perms = (member as TelegramBot.ChatMember & { permissions?: TelegramBot.ChatPermissions }).permissions;
+  const perms = (member as TelegramBot.ChatMember & { permissions?: ExtendedPermissions }).permissions;
   if (!perms) return member.status !== "restricted";
   return PERMISSION_KEYS.every((key) => perms[key] !== false);
 };
@@ -264,16 +271,42 @@ const ensureGroupSync = async (bot: TelegramBot, chat: TelegramBot.Chat) => {
   groupSyncCache.set(chat.id, true);
 };
 
+const liftRestrictions = async (bot: TelegramBot, chatId: number, userId: number) => {
+  const chatPerms = await resolveChatPermissions(bot, chatId);
+  const mergedPerms = { ...allowPermissions, ...chatPerms };
+
+  const request = async (useIndependent: boolean) => {
+    await bot.restrictChatMember(
+      chatId,
+      userId,
+      {
+        permissions: mergedPerms,
+        use_independent_chat_permissions: useIndependent,
+        until_date: 0,
+      } as any,
+    );
+  };
+
+  // Coba dua kali: dengan independent permissions dan kembali ke default chat
+  await request(true);
+  await request(false);
+
+  const state = await bot.getChatMember(chatId, userId);
+  if (!hasSendAccess(state)) {
+    // fallback: try unban (clears old restrictions in some cases), then re-allow
+    await bot.unbanChatMember(chatId, userId, { only_if_banned: false });
+    await request(true);
+    const retryState = await bot.getChatMember(chatId, userId);
+    if (!hasSendAccess(retryState)) {
+      throw new Error("User still restricted after unmute");
+    }
+  }
+};
+
 const releaseManualStatus = async (bot: TelegramBot, chatId: number, userId: number, status: MemberStatus) => {
   try {
     if (status === "muted") {
-      const perms = await resolveChatPermissions(bot, chatId);
-      await bot.restrictChatMember(chatId, userId, {
-        permissions: perms,
-        use_independent_chat_permissions: true,
-        // until_date = 0 menghapus batas waktu lama dan benar-benar meng-unmute
-        until_date: 0,
-      } as any);
+      await liftRestrictions(bot, chatId, userId);
     } else if (status === "banned") {
       await bot.unbanChatMember(chatId, userId, { only_if_banned: true });
     }
@@ -284,20 +317,7 @@ const releaseManualStatus = async (bot: TelegramBot, chatId: number, userId: num
 };
 
 const manualUnmute = async (bot: TelegramBot, chatId: number, userId: number) => {
-  const perms = await resolveChatPermissions(bot, chatId);
-  await bot.restrictChatMember(chatId, userId, {
-    permissions: perms,
-    use_independent_chat_permissions: true,
-    until_date: 0,
-  } as any);
-  try {
-    const state = await bot.getChatMember(chatId, userId);
-    if (!hasSendAccess(state)) {
-      logger.warn({ chatId, userId, state }, "Unmute applied but Telegram still reports restricted");
-    }
-  } catch (error) {
-    logger.warn({ err: error, chatId, userId }, "Failed to verify unmute state");
-  }
+  await liftRestrictions(bot, chatId, userId);
   try {
     await removeMemberModeration(chatId, userId, "muted");
   } catch (error) {
@@ -393,12 +413,7 @@ const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: Me
   logger.info({ chatId, userId: member.user_id }, "Attempting to UNMUTE user");
 
   try {
-    const perms = await resolveChatPermissions(bot, chatId);
-    await bot.restrictChatMember(chatId, member.user_id, {
-      permissions: perms,
-      use_independent_chat_permissions: true,
-      until_date: 0,
-    } as any);
+    await liftRestrictions(bot, chatId, member.user_id);
 
     logger.info({ chatId, userId: member.user_id }, "User successfully unmuted");
 
@@ -581,7 +596,6 @@ export const registerHandlers = (bot: TelegramBot) => {
     try {
       const groups = await fetchGroups(); // /admin/groups di core API
       for (const group of groups) {
-        logger.info("Running enforceManualStatuses...");
         await enforceManualStatuses(bot, group.chat_id);
       }
     } catch (err) {

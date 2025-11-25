@@ -13,11 +13,13 @@ import {
   MemberModeration,
   UserActionSummary,
   HttpError,
+  PermissionCheckResult,
+  checkPermissions,
 } from "../lib/api";
 
 type Props = { chatId: number };
 
-type PenaltyKind = "muted" | "banned";
+type PenaltyKind = "muted" | "banned" | "stuck";
 
 
 export const AdminPanel: React.FC<Props> = ({ chatId }) => {
@@ -32,6 +34,7 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
   const [loading, setLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [newAdminId, setNewAdminId] = useState<string>('');
+  const [restrictedMap, setRestrictedMap] = useState<Map<number, PermissionCheckResult>>(new Map());
 
   const notify = (msg: string) => {
     if (typeof window !== "undefined") alert(msg);
@@ -50,6 +53,16 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
       setMuted(m);
       setBanned(b);
       setUserActions(ua);
+      if (ua.length) {
+        try {
+          const res = await checkPermissions(chatId, ua.map((u) => u.user_id));
+          setRestrictedMap(new Map(res.map((r) => [r.user_id, r])));
+        } catch (err) {
+          if (err instanceof HttpError) notify(err.message);
+        }
+      } else {
+        setRestrictedMap(new Map());
+      }
     } catch (err) {
       if (err instanceof HttpError) notify(err.message);
     } finally {
@@ -164,8 +177,28 @@ const handleUnban = async (userId: number) => {
         warns: actionsMap.get(m.user_id ?? 0)?.warnings_today ?? 0,
         mutes: actionsMap.get(m.user_id ?? 0)?.mutes_total ?? 0,
       }));
-    return [...mix(muted, "muted"), ...mix(banned, "banned")];
-  }, [muted, banned, userActions]);
+    const stuck = userActions
+      .filter((u) => {
+        const mutedEntry = muted.find((m) => m.user_id === u.user_id);
+        const bannedEntry = banned.find((b) => b.user_id === u.user_id);
+        const perm = restrictedMap.get(u.user_id);
+        return !mutedEntry && !bannedEntry && perm && !perm.can_send_messages;
+      })
+      .map((u) => ({
+        id: -u.user_id, // pseudo id to keep unique key
+        chat_id: chatId,
+        user_id: u.user_id,
+        username: u.username,
+        status: "muted" as const,
+        reason: "Telegram masih membatasi kirim pesan",
+        expires_at: undefined,
+        created_at: new Date().toISOString(),
+        kind: "stuck" as PenaltyKind,
+        warns: u.warnings_today,
+        mutes: u.mutes_total,
+      }));
+    return [...mix(muted, "muted"), ...mix(banned, "banned"), ...stuck];
+  }, [muted, banned, userActions, restrictedMap, chatId]);
 
   const usersList = useMemo(() => {
     return userActions.map((u) => {
@@ -306,11 +339,11 @@ const handleUnban = async (userId: number) => {
                             <RefreshCw size={14} className="mr-1.5" /> Reset Mute
                         </button>
                         <button
-                          disabled={pendingAction === `${user.kind === 'muted' ? 'unmute' : 'unban'}-${user.user_id}`}
-                          onClick={() => (user.kind === 'muted' ? handleUnmute(user.user_id!) : handleUnban(user.user_id!))}
+                          disabled={pendingAction === `${user.kind === 'banned' ? 'unban' : 'unmute'}-${user.user_id}`}
+                          onClick={() => (user.kind === 'banned' ? handleUnban(user.user_id!) : handleUnmute(user.user_id!))}
                           className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
                         >
-                            <ShieldCheck size={14} className="mr-1.5" /> {user.kind === 'muted' ? 'Unmute' : 'Unban'}
+                            <ShieldCheck size={14} className="mr-1.5" /> {user.kind === 'banned' ? 'Unban' : 'Unmute'}
                         </button>
                     </div>
                 </div>
