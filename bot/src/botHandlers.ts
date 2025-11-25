@@ -31,6 +31,19 @@ const dailyOffenseMap: Map<string, { count: number; day: string }> = new Map();
 const muteCountCache = new TTLCache<number>(30 * 24 * 60 * 60 * 1000);
 const manualStatusCache = new Map<number, Map<number, MemberStatus>>();
 
+const PERMISSION_KEYS: Array<keyof TelegramBot.ChatPermissions> = [
+  "can_send_messages",
+  "can_send_audios",
+  "can_send_documents",
+  "can_send_photos",
+  "can_send_videos",
+  "can_send_video_notes",
+  "can_send_voice_notes",
+  "can_send_polls",
+  "can_send_other_messages",
+  "can_add_web_page_previews",
+];
+
 const setManualStatus = (chatId: number, userId: number, status: MemberStatus) => {
   let chatMap = manualStatusCache.get(chatId);
   if (!chatMap) {
@@ -159,6 +172,26 @@ const defaultPermissions: TelegramBot.ChatPermissions = {
   can_manage_topics: true,
 };
 
+const resolveChatPermissions = async (bot: TelegramBot, chatId: number): Promise<TelegramBot.ChatPermissions> => {
+  try {
+    const chat = await bot.getChat(chatId);
+    if (chat?.permissions) {
+      return chat.permissions;
+    }
+  } catch (error) {
+    logger.warn({ err: error, chatId }, "Failed to resolve chat permissions, using default");
+  }
+  return defaultPermissions;
+};
+
+const hasSendAccess = (member: TelegramBot.ChatMember | undefined) => {
+  if (!member) return false;
+  if (member.status === "kicked" || member.status === "left") return false;
+  const perms = (member as TelegramBot.ChatMemberRestricted).permissions;
+  if (!perms) return member.status !== "restricted";
+  return PERMISSION_KEYS.every((key) => perms[key] !== false);
+};
+
 const LOCAL_TIMEZONE = "Asia/Singapore";
 const WARN_LIMIT_PER_DAY = 3;
 
@@ -234,8 +267,9 @@ const ensureGroupSync = async (bot: TelegramBot, chat: TelegramBot.Chat) => {
 const releaseManualStatus = async (bot: TelegramBot, chatId: number, userId: number, status: MemberStatus) => {
   try {
     if (status === "muted") {
+      const perms = await resolveChatPermissions(bot, chatId);
       await bot.restrictChatMember(chatId, userId, {
-        permissions: defaultPermissions,
+        permissions: perms,
         use_independent_chat_permissions: true,
         // until_date = 0 menghapus batas waktu lama dan benar-benar meng-unmute
         until_date: 0,
@@ -250,11 +284,20 @@ const releaseManualStatus = async (bot: TelegramBot, chatId: number, userId: num
 };
 
 const manualUnmute = async (bot: TelegramBot, chatId: number, userId: number) => {
+  const perms = await resolveChatPermissions(bot, chatId);
   await bot.restrictChatMember(chatId, userId, {
-    permissions: defaultPermissions,
+    permissions: perms,
     use_independent_chat_permissions: true,
     until_date: 0,
   } as any);
+  try {
+    const state = await bot.getChatMember(chatId, userId);
+    if (!hasSendAccess(state)) {
+      logger.warn({ chatId, userId, state }, "Unmute applied but Telegram still reports restricted");
+    }
+  } catch (error) {
+    logger.warn({ err: error, chatId, userId }, "Failed to verify unmute state");
+  }
   try {
     await removeMemberModeration(chatId, userId, "muted");
   } catch (error) {
@@ -350,19 +393,12 @@ const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: Me
   logger.info({ chatId, userId: member.user_id }, "Attempting to UNMUTE user");
 
   try {
+    const perms = await resolveChatPermissions(bot, chatId);
     await bot.restrictChatMember(chatId, member.user_id, {
-    permissions: {
-      can_send_messages: true,
-      can_send_photos: true,
-      can_send_videos: true,
-      can_send_audios: true,
-      can_send_documents: true,
-      can_send_other_messages: true,
-      can_add_web_page_previews: true,
-    },
-    use_independent_chat_permissions: true,
-    until_date: 0
-  });
+      permissions: perms,
+      use_independent_chat_permissions: true,
+      until_date: 0,
+    } as any);
 
     logger.info({ chatId, userId: member.user_id }, "User successfully unmuted");
 
@@ -397,10 +433,10 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
           }
 
           // jika admin Telegram sudah meng-unmute secara manual,
-          // status user di chat biasanya bukan lagi "restricted"
+          // status user di chat biasanya bukan lagi "restricted" atau sudah bisa kirim pesan
           try {
             const chatMember = await bot.getChatMember(chatId, member.user_id);
-            if (chatMember && chatMember.status !== "restricted") {
+            if (chatMember && (chatMember.status !== "restricted" || hasSendAccess(chatMember))) {
               // hormati unmute manual: hapus record backend, jangan remute
               await removeMemberModeration(chatId, member.user_id, member.status);
               continue;
