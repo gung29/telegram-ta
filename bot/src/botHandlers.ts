@@ -293,9 +293,16 @@ const liftRestrictions = async (bot: TelegramBot, chatId: number, userId: number
 
   const state = await bot.getChatMember(chatId, userId);
   if (!hasSendAccess(state)) {
-    // fallback: try unban (clears old restrictions in some cases), then re-allow
-    await bot.unbanChatMember(chatId, userId, { only_if_banned: false });
-    await request(true);
+    // fallback: try once more with chat permissions only
+    await bot.restrictChatMember(
+      chatId,
+      userId,
+      {
+        permissions: chatPerms,
+        use_independent_chat_permissions: false,
+        until_date: 0,
+      } as any,
+    );
     const retryState = await bot.getChatMember(chatId, userId);
     if (!hasSendAccess(retryState)) {
       throw new Error("User still restricted after unmute");

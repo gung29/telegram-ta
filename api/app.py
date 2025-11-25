@@ -184,8 +184,18 @@ def _unrestrict_member(chat_id: int, user_id: int) -> None:
         detail = data.get("description") or data
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Gagal unrestrict: {detail}")
 
-    # fallback: unban to clear lingering restrict
-    httpx.post(f"{TELEGRAM_API_BASE}/unbanChatMember", json={"chat_id": chat_id, "user_id": user_id, "only_if_banned": False}, timeout=5.0)
+    # fallback unban hanya jika benar-benar status kick/banned
+    try:
+        state = _fetch_member_permission(chat_id, user_id)
+        if state.status == "kicked":
+            httpx.post(
+                f"{TELEGRAM_API_BASE}/unbanChatMember",
+                json={"chat_id": chat_id, "user_id": user_id, "only_if_banned": True},
+                timeout=5.0,
+            )
+    except HTTPException:
+        # kalau gagal cek status, lanjut ke verifikasi di bawah
+        pass
 
     # verify
     result = _fetch_member_permission(chat_id, user_id)
