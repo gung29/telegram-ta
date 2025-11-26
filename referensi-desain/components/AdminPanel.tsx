@@ -248,8 +248,8 @@ const handleUnban = async (userId: number) => {
         
         {/* Header */}
         <div>
-            <h2 className="text-2xl font-bold text-white mb-1">Admin Access</h2>
-            <p className="text-sm text-slate-400">Manage permissions and model parameters</p>
+            <h2 className="text-2xl font-bold text-white mb-1">Akses admin</h2>
+            <p className="text-sm text-slate-400">Kelola permissions dan parameter model</p>
         </div>
 
         {/* Admins List */}
@@ -270,7 +270,7 @@ const handleUnban = async (userId: number) => {
                       onClick={() => handleRemoveAdmin(admin.user_id)}
                       className="text-xs bg-slate-800 hover:bg-red-900/30 hover:text-red-400 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors disabled:opacity-60"
                     >
-                        Remove
+                        Hapus
                     </button>
                 </div>
             ))}
@@ -278,7 +278,7 @@ const handleUnban = async (userId: number) => {
               <div className="flex items-center space-x-2">
                 <input
                   type="number"
-                  placeholder="Admin user id"
+                  placeholder="User id admin"
                   value={newAdminId}
                   onChange={(e) => setNewAdminId(e.target.value)}
                   className="flex-1 bg-slate-900/80 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary-500 focus:outline-none"
@@ -296,7 +296,7 @@ const handleUnban = async (userId: number) => {
                 className="w-full py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-semibold border border-slate-700 hover:border-primary-400 flex items-center justify-center space-x-2"
               >
                 <RefreshCw size={14} />
-                <span>Reload Admins</span>
+                <span>Muat ulang admin</span>
               </button>
             </div>
         </div>
@@ -307,13 +307,13 @@ const handleUnban = async (userId: number) => {
              
              <div className="flex items-center space-x-2 mb-4">
                  <Zap className="text-neon-purple" size={20} />
-                 <h3 className="font-bold text-white">Moderation AI Tester</h3>
+                 <h3 className="font-bold text-white">Tester moderation AI</h3>
              </div>
 
              <textarea
                 value={testText}
                 onChange={(e) => setTestText(e.target.value)}
-                placeholder="Enter text to test the moderation model..."
+                placeholder="Masukkan teks untuk menguji model moderation..."
                 className="w-full bg-slate-900/80 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-neon-purple focus:ring-1 focus:ring-neon-purple transition-all min-h-[100px] mb-4"
              />
 
@@ -322,7 +322,7 @@ const handleUnban = async (userId: number) => {
                 disabled={loadingTest}
                 className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center transition-all ${loadingTest ? 'bg-slate-700 cursor-not-allowed' : 'bg-slate-800 border border-slate-700'}`}
              >
-                 {loadingTest ? 'Memproses…' : 'Analyze (placeholder)'}
+                 {loadingTest ? 'Memproses…' : 'Analisis'}
              </button>
 
              {analysisResult && (
@@ -334,7 +334,7 @@ const handleUnban = async (userId: number) => {
 
         {/* Muted/Banned Users Management */}
         <div>
-            <h3 className="text-white font-bold mb-3">Active Penalties</h3>
+            <h3 className="text-white font-bold mb-3">Penalti aktif</h3>
             {loading && <p className="text-slate-400 text-sm">Memuat...</p>}
             {!loading && penalties.length === 0 && <p className="text-slate-500 text-sm">Tidak ada penalti aktif.</p>}
             {penalties.map(user => (
@@ -348,26 +348,26 @@ const handleUnban = async (userId: number) => {
                             <div className="px-2 py-1 bg-orange-500/20 text-orange-400 rounded text-[10px] font-bold border border-orange-500/20">
                                 {user.warns} Warns
                             </div>
-                             <div className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-[10px] font-bold border border-purple-500/20">
+                            <div className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-[10px] font-bold border border-purple-500/20">
                                 {user.mutes} Mutes
                             </div>
                         </div>
                     </div>
                     
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        <button
-                          disabled={pendingAction === `reset-warning-${user.user_id}`}
-                          onClick={() => handleResetWarning(user.user_id!)}
-                          className="py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
-                        >
-                            <AlertOctagon size={14} className="mr-1.5" /> Reset Warning
+                    <button
+                      disabled={pendingAction === `reset-warning-${user.user_id}`}
+                      onClick={() => handleResetWarning(user.user_id!)}
+                      className="py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                    >
+                            <AlertOctagon size={14} className="mr-1.5" /> Reset warning
                         </button>
-                        <button
-                          disabled={pendingAction === `reset-mute-${user.user_id}`}
-                          onClick={() => handleResetMute(user.user_id!)}
-                          className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
-                        >
-                            <RefreshCw size={14} className="mr-1.5" /> Reset Mute
+                    <button
+                      disabled={pendingAction === `reset-mute-${user.user_id}`}
+                      onClick={() => handleResetMute(user.user_id!)}
+                      className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                    >
+                            <RefreshCw size={14} className="mr-1.5" /> Reset mute
                         </button>
                         <button
                           disabled={pendingAction === `${user.kind === 'banned' ? 'unban' : 'unmute'}-${user.user_id}`}
@@ -384,12 +384,12 @@ const handleUnban = async (userId: number) => {
         {/* User Actions Overview */}
         <div className="glass-panel rounded-2xl p-4 border border-slate-800 space-y-3">
           <div className="flex items-center justify-between mb-1">
-            <h3 className="text-white font-bold">User Actions</h3>
+            <h3 className="text-white font-bold">User actions</h3>
             <button
               onClick={load}
               className="flex items-center space-x-1 text-xs text-slate-300 px-2 py-1 rounded-lg border border-slate-700 hover:border-primary-400"
             >
-              <RefreshCw size={12} /> <span>Reload</span>
+              <RefreshCw size={12} /> <span>Muat ulang</span>
             </button>
           </div>
           {loading && <p className="text-slate-400 text-sm">Memuat...</p>}

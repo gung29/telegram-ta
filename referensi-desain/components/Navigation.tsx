@@ -11,7 +11,7 @@ export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChang
   const navItems = [
     { view: View.DASHBOARD, icon: LayoutDashboard, label: 'Dash' },
     { view: View.STATS, icon: BarChart3, label: 'Stats' },
-    { view: View.VERIFY, icon: CheckCircle, label: 'Verify' },
+    { view: View.VERIFY, icon: CheckCircle, label: 'Verifikasi' },
     { view: View.LOGS, icon: FileText, label: 'Logs' },
     { view: View.ADMIN, icon: ShieldAlert, label: 'Admin' },
   ];

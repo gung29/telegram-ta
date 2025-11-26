@@ -95,7 +95,7 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
                   key={p}
                   onClick={() => setWindowKey(p as typeof windowKey)}
                   className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${windowKey === p ? 'bg-slate-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}>
-                    {p === "24h" ? "Today" : p === "7d" ? "7 Days" : "30 Days"}
+                    {p === "24h" ? "Hari ini" : p === "7d" ? "7 hari" : "30 hari"}
                 </button>
             ))}
         </div>
@@ -103,10 +103,10 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
         <div className="glass-panel p-5 rounded-3xl border border-slate-700/50">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <h3 className="text-white font-bold mb-1">Moderation Activity</h3>
+                <h3 className="text-white font-bold mb-1">Aktivitas moderation</h3>
                 <p className="text-xs text-slate-400">Jendela: {windowKey}</p>
               </div>
-              {loading && <span className="text-xs text-slate-400">Loading…</span>}
+              {loading && <span className="text-xs text-slate-400">Memuat…</span>}
             </div>
             <div className="flex space-x-4 text-xs mb-4">
                 <span className="flex items-center text-blue-400"><span className="w-2 h-2 rounded-full bg-blue-400 mr-1"></span> Total</span>
@@ -155,8 +155,8 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
 
         <div className="glass-panel p-4 rounded-3xl border border-slate-700/50">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-white font-bold">Action Distribution</h3>
-            {loading && <span className="text-xs text-slate-400">Loading…</span>}
+            <h3 className="text-white font-bold">Distribusi aksi</h3>
+            {loading && <span className="text-xs text-slate-400">Memuat…</span>}
           </div>
           <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
@@ -184,8 +184,8 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
 
         <div>
             <div className="flex justify-between items-center mb-3 px-1">
-                <h3 className="text-white font-bold">Top Offenders</h3>
-                <span className="text-xs text-slate-500">Window: {windowKey}</span>
+                <h3 className="text-white font-bold">Top pelanggar</h3>
+                <span className="text-xs text-slate-500">Jendela: {windowKey}</span>
             </div>
             <div className="space-y-3">
                 {topOffenders.length === 0 && <p className="text-slate-400 text-sm">Belum ada data.</p>}
@@ -196,10 +196,10 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
                         </div>
                         <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-bold text-white truncate">{user.username}</h4>
-                            <div className="text-[10px] text-slate-400 font-mono">Acts: {user.acts}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">Aksi: {user.acts}</div>
                         </div>
                         <div className="text-right">
-                             <div className="text-sm font-bold text-neon-blue">{user.acts} acts</div>
+                             <div className="text-sm font-bold text-neon-blue">{user.acts} aksi</div>
                              <div className="w-24 h-1.5 bg-slate-800 rounded-full mt-1 overflow-hidden">
                                  <div 
                                     className="h-full bg-gradient-to-r from-blue-500 to-purple-500" 

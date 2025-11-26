@@ -78,8 +78,8 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
     <div className="p-4 pb-24 h-full flex flex-col animate-fade-in relative">
         <div className="flex justify-between items-center mb-6">
             <div>
-                <h2 className="text-2xl font-bold text-white">Manual Verification</h2>
-                <p className="text-sm text-slate-400">Review flagged messages</p>
+                <h2 className="text-2xl font-bold text-white">Manual verification</h2>
+                <p className="text-sm text-slate-400">Review pesan yang flagged</p>
             </div>
             <div className="flex items-center space-x-2">
               <button
@@ -119,7 +119,7 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
                   ? "Hate"
                   : key === "non-hate"
                   ? "Non-hate"
-                  : "All"}
+                  : "Semua"}
               </button>
             ))}
           </div>
@@ -134,7 +134,7 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
             {!loading && filteredItems.length === 0 ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
                     <Check size={48} className="mb-4 text-green-500 opacity-50" />
-                    <p>All caught up! No pending reviews.</p>
+                    <p>Semua sudah dicek! Tidak ada review pending.</p>
                 </div>
             ) : (
                 <div className="space-y-4">

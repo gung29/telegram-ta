@@ -37,7 +37,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="Admin" className="w-full h-full rounded-full opacity-90 hover:opacity-100 transition-opacity object-cover" />
                 ) : (
-                  <div className="text-[10px] uppercase tracking-wide text-slate-300">You</div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-300">Kamu</div>
                 )}
             </div>
         </header>

@@ -136,7 +136,7 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
   return (
     <div className="p-4 h-full flex flex-col pb-24 animate-fade-in">
         <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-white">History & Logs</h2>
+            <h2 className="text-2xl font-bold text-white">History & logs</h2>
             <button
               onClick={handleExport}
               disabled={exporting}
@@ -152,7 +152,7 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
                 <Search className="absolute left-3 top-3 text-slate-500" size={18} />
                 <input 
                     type="text" 
-                    placeholder="Search logs, users, content..." 
+                    placeholder="Cari logs, user, konten..." 
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -160,11 +160,11 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
             </div>
             <div className="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide">
                 {[
-                  { key: "all", label: "All" },
+                  { key: "all", label: "Semua" },
                   { key: "verified", label: "Verified" },
                   { key: "flagged", label: "Pending" },
-                  { key: "muted", label: "Muted/Warned" },
-                  { key: "banned", label: "Banned/Blocked" },
+                  { key: "muted", label: "Muted/warned" },
+                  { key: "banned", label: "Banned/blocked" },
                 ].map(({ key, label }) => (
                     <button
                       key={key}
@@ -185,7 +185,7 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
                         timeFilter === tf ? 'border-primary-500 text-white' : 'border-slate-700 text-slate-400'
                       }`}
                     >
-                      {tf}
+                      {tf === "all" ? "Semua" : tf}
                     </button>
                   ))}
                   <button
@@ -193,7 +193,7 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
                     className="px-2.5 py-1 rounded-lg text-[11px] border border-slate-700 text-slate-300 hover:border-primary-400 transition flex items-center space-x-1"
                   >
                     <Clock size={12} />
-                    <span>{sortNewest ? "Newest" : "Oldest"}</span>
+                    <span>{sortNewest ? "Terbaru" : "Terlama"}</span>
                   </button>
                 </div>
             </div>
@@ -201,10 +201,10 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
 
         {/* Table Header */}
         <div className="grid grid-cols-12 gap-2 text-xs font-bold text-slate-500 px-2 mb-2 uppercase tracking-wider">
-            <div className="col-span-3">Time/User</div>
-            <div className="col-span-2 text-center">Action</div>
+            <div className="col-span-3">Waktu/user</div>
+            <div className="col-span-2 text-center">Aksi</div>
             <div className="col-span-2 text-center">Score</div>
-            <div className="col-span-5">Content</div>
+            <div className="col-span-5">Konten</div>
         </div>
 
         {/* List */}
@@ -260,7 +260,7 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-4 py-2 border-b border-slate-800 text-xs uppercase tracking-wide text-slate-400">
-                Actions
+                Aksi
               </div>
               <button
                 onClick={() => {
@@ -296,7 +296,7 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
                 onClick={() => setMenuLog(null)}
                 className="w-full text-center px-4 py-2 text-xs text-slate-400 hover:bg-slate-900 border-t border-slate-800"
               >
-                Close
+                Tutup
               </button>
             </div>
           </div>

@@ -88,10 +88,10 @@ function App() {
     const warnOnly = stats?.warn_only ?? stats?.warned ?? 0;
     const muted = stats?.muted ?? stats?.warned ?? 0;
     return [
-      { title: "Total Actions", value: total, subtitle: "Last window" },
-      { title: "Deleted", value: deleted, subtitle: "High confidence" },
-      { title: "Auto-Muted", value: muted, subtitle: "Temporary" },
-      { title: "Warnings", value: warnOnly, subtitle: "Escalated" },
+      { title: "Total aksi", value: total, subtitle: "Periode ini" },
+      { title: "Dihapus", value: deleted, subtitle: "Confidence tinggi" },
+      { title: "Auto-Muted", value: muted, subtitle: "Sementara" },
+      { title: "Warnings", value: warnOnly, subtitle: "Sudah diekskalasi" },
     ];
   }, [stats]);
 

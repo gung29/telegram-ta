@@ -91,7 +91,7 @@ export const Dashboard: React.FC<Props> = ({
                         ${manualMode ? 'text-orange-100' : 'text-green-400'}
                       `}
                     >
-                      {manualMode ? 'Manual Mode' : 'Auto-Protection'}
+                      {manualMode ? 'Mode manual' : 'Perlindungan otomatis'}
                     </h2>
                 </div>
                 <span className="text-xs text-slate-400 font-mono">{lastUpdate}</span>
@@ -99,8 +99,8 @@ export const Dashboard: React.FC<Props> = ({
             
             <p className="text-slate-400 text-sm mb-6">
                 {manualMode 
-                    ? "System is currently flagging content for review only." 
-                    : "System is actively filtering high-confidence threats."}
+                    ? "System saat ini hanya menandai konten untuk ditinjau terlebih dahulu." 
+                    : "System sedang aktif menyaring ancaman dengan confidence tinggi."}
             </p>
 
             <div className="flex items-center justify-between">
@@ -119,7 +119,7 @@ export const Dashboard: React.FC<Props> = ({
                         ></div>
                     </div>
                     <span className={`ml-3 text-sm font-medium ${realtimeOn ? 'text-white' : 'text-slate-300'}`}>
-                        {realtimeOn ? 'Realtime ON' : 'Realtime OFF'}
+                        {realtimeOn ? 'Realtime aktif' : 'Realtime nonaktif'}
                     </span>
                 </label>
                 
@@ -128,7 +128,7 @@ export const Dashboard: React.FC<Props> = ({
                     className="flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-full text-xs font-bold border border-slate-600 transition-all active:scale-95"
                 >
                     <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-                    <span>Refresh Data</span>
+                    <span>Refresh data</span>
                 </button>
             </div>
         </div>
@@ -136,7 +136,7 @@ export const Dashboard: React.FC<Props> = ({
 
       {/* Monitored Groups */}
       <div>
-        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Monitored Channels</h3>
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Channel yang dipantau</h3>
         <div className="flex overflow-x-auto space-x-3 pb-2 scrollbar-hide">
             {groups.map(g => (
                 <button
@@ -158,18 +158,18 @@ export const Dashboard: React.FC<Props> = ({
                   </div>
                   <p className="text-xs text-slate-500 font-mono">ID: {g.cid}</p>
                   <p className="text-[10px] text-slate-500 mb-3">
-                    Type:{" "}
+                    Tipe:{" "}
                     <span className="uppercase tracking-wide">
                       {g.groupType === "supergroup"
                         ? "Supergroup"
                         : g.groupType === "group"
                         ? "Group"
-                        : g.groupType || "Unknown"}
+                        : g.groupType || "Tidak diketahui"}
                     </span>
                   </p>
                   <div className="flex items-center justify-between">
                       <span className={`text-xs font-medium ${g.status ? 'text-neon-green' : 'text-slate-500'}`}>
-                          {g.status ? 'Active' : 'Paused'}
+                          {g.status ? 'Aktif' : 'Dijeda'}
                       </span>
                        <button
                         type="button"
@@ -197,8 +197,8 @@ export const Dashboard: React.FC<Props> = ({
       </div>
 
       {/* Summary Stats Grid */}
-      <div>
-        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Moderation Impact</h3>
+        <div>
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Dampak moderation</h3>
         <div className="grid grid-cols-2 gap-3">
             {mappedMetrics.map((m, idx) => (
               <StatCard 
@@ -284,7 +284,7 @@ export const Dashboard: React.FC<Props> = ({
               onBlur={onRetentionCommit}
               className="bg-transparent border-none outline-none text-sm text-white font-mono w-16 text-right"
             />
-            <span className="text-[10px] text-slate-500 uppercase tracking-widest">days</span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-widest">hari</span>
           </div>
         </div>
       </div>
@@ -292,7 +292,7 @@ export const Dashboard: React.FC<Props> = ({
       {/* Live Feed Teaser */}
       <div className="glass-panel rounded-2xl p-4 border-l-4 border-neon-blue">
           <div className="flex justify-between items-center mb-2">
-              <h4 className="font-bold text-white">Live Activity</h4>
+              <h4 className="font-bold text-white">Aktivitas live</h4>
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-blue opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-blue"></span>
