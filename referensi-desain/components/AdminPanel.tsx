@@ -170,6 +170,13 @@ const handleUnmute = async (userId: number) => {
       }
     }
 
+    // 3) Reset warning count agar setelah unmute peringatan hari ini ikut nol
+    try {
+      await resetUserAction(chatId, userId, "warned");
+    } catch (err) {
+      if (!(err instanceof HttpError)) throw err;
+    }
+
     await load();
   } catch (err) {
     if (err instanceof HttpError) notify(err.message);
