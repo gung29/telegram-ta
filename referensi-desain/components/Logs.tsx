@@ -19,9 +19,19 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
   const [logs, setLogs] = useState<EventEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
   const notify = (msg: string) => {
     if (typeof window !== "undefined") alert(msg);
+  };
+
+  const copyToClipboard = async (text: string, fallbackMsg: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      notify(fallbackMsg);
+    } catch {
+      notify(fallbackMsg);
+    }
   };
 
   const load = async () => {
@@ -209,7 +219,7 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
                 ? dayjs(log.created_at).fromNow()
                 : log.created_at;
               return (
-                <div key={log.id} className="glass-panel p-3 rounded-xl grid grid-cols-12 gap-2 items-center hover:bg-slate-800/50 transition-colors">
+                <div key={log.id} className="glass-panel p-3 rounded-xl grid grid-cols-12 gap-2 items-center hover:bg-slate-800/50 transition-colors relative">
                     <div className="col-span-3">
                         <div className="text-xs text-slate-400 font-mono">{timeLabel}</div>
                         <div className="text-sm font-bold text-white truncate">{log.username ?? `User ${log.user_id ?? '-'}`}</div>
@@ -227,8 +237,48 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
                     <div className="col-span-4">
                         <p className="text-xs text-slate-300 truncate opacity-80">{log.text ?? log.reason ?? 'Tidak ada konten'}</p>
                     </div>
-                    <div className="col-span-1 flex justify-end">
-                        <MoreHorizontal size={16} className="text-slate-500" />
+                    <div className="col-span-1 flex justify-end relative">
+                        <button
+                          onClick={() => setOpenMenuId((prev) => (prev === log.id ? null : log.id))}
+                          className="p-1 rounded hover:bg-slate-800 transition"
+                          aria-label="More actions"
+                        >
+                          <MoreHorizontal size={16} className="text-slate-500" />
+                        </button>
+                        {openMenuId === log.id && (
+                          <div className="absolute right-0 top-8 z-20 bg-slate-900 border border-slate-700 rounded-lg shadow-xl w-48">
+                            <button
+                              onClick={() => {
+                                copyToClipboard(
+                                  `${log.username ?? log.user_id ?? "user"}: ${log.text ?? log.reason ?? ""}`,
+                                  "Konten disalin",
+                                );
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                            >
+                              Copy message
+                            </button>
+                            <button
+                              onClick={() => {
+                                copyToClipboard(String(log.user_id ?? ""), "User ID disalin");
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                            >
+                              Copy user ID
+                            </button>
+                            <button
+                              onClick={() => {
+                                copyToClipboard(String(log.id), "Event ID disalin");
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                            >
+                              Copy event ID
+                            </button>
+                          </div>
+                        )}
                     </div>
                 </div>
               );
