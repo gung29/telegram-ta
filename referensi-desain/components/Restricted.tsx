@@ -44,7 +44,7 @@ export const Restricted: React.FC<Props> = ({ reason }) => {
     <div className="relative z-10 max-w-xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
       <div className="text-center space-y-3">
-        <div className="mx-auto w-20 h-20 rounded-full border border-slate-800 bg-gradient-to-br from-slate-950 to-black flex items-center justify-center shadow-[0_20px_40px_rgba(0,0,0,0.7)]">
+        <div className="mx-auto w-20 h-20 rounded-full border border-slate-800 bg-gradient-to-br from-slate-950 to-black flex items-center justify-center shadow-[0_20px_40px_rgba(0,0,0,0.7)] transition-transform duration-300 hover:scale-105 hover:shadow-[0_26px_60px_rgba(0,0,0,0.9)]">
           <Lock className="text-slate-200" size={32} />
         </div>
         <div>

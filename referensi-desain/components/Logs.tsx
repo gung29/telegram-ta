@@ -169,7 +169,7 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
                     <button
                       key={key}
                       onClick={() => setTab(key as TabFilter)}
-                      className={`px-3 py-1.5 rounded-full border text-xs whitespace-nowrap transition ${
+                    className={`px-3 py-1.5 rounded-full border text-xs whitespace-nowrap transition ${
                         tab === key ? 'border-primary-500 text-white bg-slate-800' : 'border-slate-700 text-slate-300 hover:bg-slate-800'
                       }`}
                     >
@@ -219,7 +219,10 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
                 ? dayjs(log.created_at).fromNow()
                 : log.created_at;
               return (
-                <div key={log.id} className="glass-panel p-3 rounded-xl grid grid-cols-12 gap-2 items-center hover:bg-slate-800/50 transition-colors relative">
+                <div
+                  key={log.id}
+                  className="glass-panel p-3 rounded-xl grid grid-cols-12 gap-2 items-center hover:bg-slate-800/60 transition-colors relative transform hover:-translate-y-0.5 hover:shadow-[0_14px_32px_rgba(15,23,42,0.9)]"
+                >
                     <div className="col-span-3">
                         <div className="text-xs text-slate-400 font-mono">{timeLabel}</div>
                         <div className="text-sm font-bold text-white truncate">{log.username ?? `User ${log.user_id ?? '-'}`}</div>

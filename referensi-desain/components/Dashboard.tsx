@@ -104,7 +104,7 @@ export const Dashboard: React.FC<Props> = ({
             </p>
 
             <div className="flex items-center justify-between">
-                <label className="flex items-center cursor-pointer">
+                <label className="flex items-center cursor-pointer select-none">
                     <div className="relative">
                         <input type="checkbox" className="sr-only" checked={realtimeOn} onChange={onToggleRealtime} />
                         <div
@@ -118,14 +118,14 @@ export const Dashboard: React.FC<Props> = ({
                           }`}
                         ></div>
                     </div>
-                    <span className={`ml-3 text-sm font-medium ${realtimeOn ? 'text-white' : 'text-slate-300'}`}>
+                    <span className={`ml-3 text-sm font-medium transition-colors ${realtimeOn ? 'text-white' : 'text-slate-300'}`}>
                         {realtimeOn ? 'Realtime aktif' : 'Realtime nonaktif'}
                     </span>
                 </label>
                 
                 <button 
                     onClick={onRefresh}
-                    className="flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-full text-xs font-bold border border-slate-600 transition-all active:scale-95"
+                    className="flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-full text-xs font-bold border border-slate-600 transition-all active:scale-95 hover:shadow-[0_10px_25px_rgba(15,23,42,0.8)]"
                 >
                     <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
                     <span>Refresh data</span>
@@ -142,7 +142,11 @@ export const Dashboard: React.FC<Props> = ({
                 <button
                   key={g.id}
                   onClick={() => onSelectGroup(g.id)}
-                  className={`flex-shrink-0 w-64 p-4 rounded-2xl border transition-all duration-300 text-left ${g.active ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-primary-500/30' : 'bg-slate-900 border-slate-800 opacity-70 hover:opacity-100'}`}
+                  className={`flex-shrink-0 w-64 p-4 rounded-2xl border transition-all duration-300 text-left transform ${
+                    g.active
+                      ? 'bg-gradient-to-br from-slate-800 to-slate-900 border-primary-500/30 shadow-[0_18px_40px_rgba(15,23,42,0.9)]'
+                      : 'bg-slate-900 border-slate-800 opacity-70 hover:opacity-100 hover:-translate-y-1 hover:shadow-[0_14px_30px_rgba(15,23,42,0.8)]'
+                  }`}
                 >
                   <div className="flex justify-between items-start mb-2">
                       <h4 className="font-bold text-white truncate pr-2">{g.name}</h4>
@@ -225,10 +229,10 @@ export const Dashboard: React.FC<Props> = ({
                 <button
                   key={mode}
                   onClick={() => onModeSelect(mode)}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold capitalize transition-all border ${
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold capitalize transition-all border transform ${
                     active
-                      ? "bg-slate-800 border-primary-400 text-white shadow"
-                      : "bg-slate-900/70 border-slate-700 text-slate-300 hover:border-primary-400/60 hover:text-white"
+                      ? "bg-slate-800 border-primary-400 text-white shadow hover:shadow-[0_16px_36px_rgba(15,23,42,0.9)]"
+                      : "bg-slate-900/70 border-slate-700 text-slate-300 hover:border-primary-400/60 hover:text-white hover:-translate-y-0.5"
                   }`}
                 >
                   {mode}
@@ -255,7 +259,7 @@ export const Dashboard: React.FC<Props> = ({
               {(thresholdPreview * 100).toFixed(1)}%
             </span>
           </div>
-          <div className="px-3 py-3 rounded-2xl bg-slate-900/70 border border-slate-800">
+          <div className="px-3 py-3 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-primary-500/40 transition-colors">
             <input
               type="range"
               min={thresholdMin}
@@ -267,7 +271,7 @@ export const Dashboard: React.FC<Props> = ({
               onPointerUp={onThresholdCommit}
               onTouchEnd={onThresholdCommit}
               onBlur={onThresholdCommit}
-              className="w-full accent-purple-400"
+              className="w-full accent-purple-400 cursor-pointer"
             />
           </div>
         </div>
@@ -282,7 +286,7 @@ export const Dashboard: React.FC<Props> = ({
               value={retentionDays}
               onChange={(e) => onRetentionChange(Number(e.target.value) || 0)}
               onBlur={onRetentionCommit}
-              className="bg-transparent border-none outline-none text-sm text-white font-mono w-16 text-right"
+              className="bg-transparent border-none outline-none text-sm text-white font-mono w-16 text-right focus-visible:ring-1 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded"
             />
             <span className="text-[10px] text-slate-500 uppercase tracking-widest">hari</span>
           </div>
@@ -318,7 +322,9 @@ export const Dashboard: React.FC<Props> = ({
 const StatCard: React.FC<{title: string, value: string, subtitle: string, icon: any, color: string, bg: string}> = ({
     title, value, subtitle, icon: Icon, color, bg
 }) => (
-    <div className={`p-4 rounded-2xl bg-gradient-to-br ${bg} border border-slate-800 relative overflow-hidden`}>
+    <div
+      className={`p-4 rounded-2xl bg-gradient-to-br ${bg} border border-slate-800 relative overflow-hidden transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.85)]`}
+    >
         <div className={`absolute top-3 right-3 opacity-20 ${color}`}>
             <Icon size={24} />
         </div>

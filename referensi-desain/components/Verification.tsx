@@ -139,12 +139,12 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
             ) : (
                 <div className="space-y-4">
                     {filteredItems.map((item) => (
-                        <div 
-                            key={item.id} 
-                            id={`card-${item.id}`}
-                            className={`glass-panel p-5 rounded-3xl border border-slate-700/50 shadow-lg transition-all duration-300 transform ${
-                              item.manual_verified ? "border-green-600/50 bg-green-500/5" : ""
-                            }`}
+                        <div
+                          key={item.id}
+                          id={`card-${item.id}`}
+                          className={`glass-panel p-5 rounded-3xl border border-slate-700/50 shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.9)] ${
+                            item.manual_verified ? "border-green-600/50 bg-green-500/5" : ""
+                          }`}
                         >
                             <div className="flex items-center space-x-3 mb-4">
                                 <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden">
@@ -178,14 +178,14 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
                                   <button 
                                       disabled={verifying === item.id}
                                       onClick={() => handleDecision(item.id, "non-hate")}
-                                      className={`flex-1 py-3 rounded-xl bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500 hover:text-white transition-all font-bold flex items-center justify-center ${verifying === item.id ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                      className={`flex-1 py-3 rounded-xl bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500 hover:text-white transition-all font-bold flex items-center justify-center active:scale-95 ${verifying === item.id ? 'opacity-70 cursor-not-allowed' : ''}`}
                                   >
                                       <Check size={18} className="mr-2" /> Mark Safe
                                   </button>
                                   <button 
                                       disabled={verifying === item.id}
                                       onClick={() => handleDecision(item.id, "hate")}
-                                      className={`flex-1 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all font-bold flex items-center justify-center ${verifying === item.id ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                      className={`flex-1 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all font-bold flex items-center justify-center active:scale-95 ${verifying === item.id ? 'opacity-70 cursor-not-allowed' : ''}`}
                                   >
                                       <X size={18} className="mr-2" /> Hate Speech
                                   </button>

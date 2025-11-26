@@ -338,7 +338,10 @@ const handleUnban = async (userId: number) => {
             {loading && <p className="text-slate-400 text-sm">Memuat...</p>}
             {!loading && penalties.length === 0 && <p className="text-slate-500 text-sm">Tidak ada penalti aktif.</p>}
             {penalties.map(user => (
-                <div key={`${user.kind}-${user.id}`} className="glass-panel p-4 rounded-2xl mb-3 border border-slate-800">
+                <div
+                  key={`${user.kind}-${user.id}`}
+                  className="glass-panel p-4 rounded-2xl mb-3 border border-slate-800 transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.9)]"
+                >
                     <div className="flex justify-between items-start mb-4">
                         <div>
                             <div className="font-bold text-white">{user.username ?? `User ${user.user_id ?? '-'}`}</div>
@@ -356,23 +359,23 @@ const handleUnban = async (userId: number) => {
                     
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     <button
-                      disabled={pendingAction === `reset-warning-${user.user_id}`}
-                      onClick={() => handleResetWarning(user.user_id!)}
-                      className="py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                          disabled={pendingAction === `reset-warning-${user.user_id}`}
+                          onClick={() => handleResetWarning(user.user_id!)}
+                          className="py-2 bg-slate-800 hover:bg-slate-700 text-red-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60 active:scale-95"
                     >
                             <AlertOctagon size={14} className="mr-1.5" /> Reset warning
                         </button>
                     <button
-                      disabled={pendingAction === `reset-mute-${user.user_id}`}
-                      onClick={() => handleResetMute(user.user_id!)}
-                      className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                          disabled={pendingAction === `reset-mute-${user.user_id}`}
+                          onClick={() => handleResetMute(user.user_id!)}
+                          className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60 active:scale-95"
                     >
                             <RefreshCw size={14} className="mr-1.5" /> Reset mute
                         </button>
                         <button
                           disabled={pendingAction === `${user.kind === 'banned' ? 'unban' : 'unmute'}-${user.user_id}`}
                           onClick={() => (user.kind === 'banned' ? handleUnban(user.user_id!) : handleUnmute(user.user_id!))}
-                          className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60"
+                          className="py-2 bg-slate-800 hover:bg-slate-700 text-purple-400 text-xs font-bold rounded-lg border border-slate-700 flex items-center justify-center disabled:opacity-60 active:scale-95"
                         >
                             <ShieldCheck size={14} className="mr-1.5" /> {user.kind === 'banned' ? 'Unban' : 'Unmute'}
                         </button>
