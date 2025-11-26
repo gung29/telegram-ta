@@ -19,7 +19,7 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
   const [logs, setLogs] = useState<EventEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [menuLog, setMenuLog] = useState<EventEntry | null>(null);
 
   const notify = (msg: string) => {
     if (typeof window !== "undefined") alert(msg);
@@ -237,54 +237,70 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
                     <div className="col-span-4">
                         <p className="text-xs text-slate-300 truncate opacity-80">{log.text ?? log.reason ?? 'Tidak ada konten'}</p>
                     </div>
-                    <div className="col-span-1 flex justify-end relative">
+                    <div className="col-span-1 flex justify-end">
                         <button
-                          onClick={() => setOpenMenuId((prev) => (prev === log.id ? null : log.id))}
+                          onClick={() => setMenuLog(log)}
                           className="p-1 rounded hover:bg-slate-800 transition"
                           aria-label="More actions"
                         >
                           <MoreHorizontal size={16} className="text-slate-500" />
                         </button>
-                        {openMenuId === log.id && (
-                          <div className="absolute right-0 top-8 z-40 bg-slate-900 border border-slate-700 rounded-lg shadow-xl w-48"
-                            style={{ transform: "translateZ(0)" }}>
-                            <button
-                              onClick={() => {
-                                copyToClipboard(
-                                  `${log.username ?? log.user_id ?? "user"}: ${log.text ?? log.reason ?? ""}`,
-                                  "Konten disalin",
-                                );
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
-                            >
-                              Copy message
-                            </button>
-                            <button
-                              onClick={() => {
-                                copyToClipboard(String(log.user_id ?? ""), "User ID disalin");
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
-                            >
-                              Copy user ID
-                            </button>
-                            <button
-                              onClick={() => {
-                                copyToClipboard(String(log.id), "Event ID disalin");
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
-                            >
-                              Copy event ID
-                            </button>
-                          </div>
-                        )}
                     </div>
                 </div>
               );
             })}
         </div>
+        {menuLog && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+            onClick={() => setMenuLog(null)}
+          >
+            <div
+              className="mb-24 w-full max-w-xs rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-4 py-2 border-b border-slate-800 text-xs uppercase tracking-wide text-slate-400">
+                Actions
+              </div>
+              <button
+                onClick={() => {
+                  copyToClipboard(
+                    `${menuLog.username ?? menuLog.user_id ?? "user"}: ${menuLog.text ?? menuLog.reason ?? ""}`,
+                    "Konten disalin",
+                  );
+                  setMenuLog(null);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-100 hover:bg-slate-800"
+              >
+                Copy message
+              </button>
+              <button
+                onClick={() => {
+                  copyToClipboard(String(menuLog.user_id ?? ""), "User ID disalin");
+                  setMenuLog(null);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-100 hover:bg-slate-800"
+              >
+                Copy user ID
+              </button>
+              <button
+                onClick={() => {
+                  copyToClipboard(String(menuLog.id), "Event ID disalin");
+                  setMenuLog(null);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-100 hover:bg-slate-800"
+              >
+                Copy event ID
+              </button>
+              <button
+                onClick={() => setMenuLog(null)}
+                className="w-full text-center px-4 py-2 text-xs text-slate-400 hover:bg-slate-900 border-t border-slate-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
     </div>
   );
 };
