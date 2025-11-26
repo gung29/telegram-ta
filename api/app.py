@@ -182,6 +182,12 @@ def _unrestrict_member(chat_id: int, user_id: int) -> None:
     try:
         _call(True)
         _call(False)
+        # bersihkan status ban lama jika ada (aman karena only_if_banned)
+        httpx.post(
+            f"{TELEGRAM_API_BASE}/unbanChatMember",
+            json={"chat_id": chat_id, "user_id": user_id, "only_if_banned": True},
+            timeout=5.0,
+        )
     except httpx.RequestError as exc:  # noqa: BLE001
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram unreachable: {exc}") from exc
     except ValueError as exc:  # noqa: BLE001

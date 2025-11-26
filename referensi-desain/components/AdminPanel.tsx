@@ -146,31 +146,17 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
 const handleUnmute = async (userId: number) => {
   setPendingAction(`unmute-${userId}`);
   try {
-    // 1) Coba hapus record backend kalau ada
+    // 1) Lepas restrict langsung di Telegram (jika gagal, lempar agar user tahu)
+    await unrestrictMember(chatId, userId);
+
+    // 2) Bersihkan record backend (jika sudah hilang, abaikan 404)
     try {
       await deleteMemberStatus(chatId, userId, "muted");
     } catch (err) {
-      // Kalau 404, abaikan (memang tidak ada record, mis. kasus "stuck")
-      if (!(err instanceof HttpError && err.status === 404)) {
-        throw err;
-      }
+      if (!(err instanceof HttpError && err.status === 404)) throw err;
     }
 
-    // 2) SELALU coba unrestrict di Telegram,
-    //    baik itu mute normal maupun "stuck"
-    try {
-      await unrestrictMember(chatId, userId);
-    } catch (err) {
-      // Kalau mau, bisa ignore error tertentu (mis. user sudah bebas)
-      if (err instanceof HttpError) {
-        // mis. log saja:
-        console.error("unrestrict failed", err.message);
-      } else {
-        throw err;
-      }
-    }
-
-    // 3) Reset warning count agar setelah unmute peringatan hari ini ikut nol
+    // 3) Reset warning count
     try {
       await resetUserAction(chatId, userId, "warned");
     } catch (err) {
@@ -180,6 +166,7 @@ const handleUnmute = async (userId: number) => {
     await load();
   } catch (err) {
     if (err instanceof HttpError) notify(err.message);
+    else notify("Gagal melakukan unmute");
   } finally {
     setPendingAction(null);
   }
