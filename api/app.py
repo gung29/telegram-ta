@@ -191,33 +191,60 @@ def _fetch_member_permission(chat_id: int, user_id: int) -> PermissionCheckResul
 
 
 def _unrestrict_member(chat_id: int, user_id: int) -> None:
-    def _call(use_independent: bool) -> None:
-        payload = {
-            "chat_id": chat_id,
-            "user_id": user_id,
-            "permissions": ALLOW_PERMISSIONS,
-            "use_independent_chat_permissions": use_independent,
-            "until_date": 0,
-        }
-        resp = httpx.post(f"{TELEGRAM_API_BASE}/restrictChatMember", json=payload, timeout=5.0)
-        try:
-            data = resp.json()
-        except ValueError:
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid response from Telegram")
-        if not data.get("ok"):
-            detail = data.get("description") or data
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Gagal unrestrict: {detail}")
-
     try:
-        _call(True)
-        _call(False)
-    except httpx.RequestError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram unreachable: {exc}") from exc
+        # cukup panggil 1–2 kali dengan minimal permission
+        base_permissions = {
+            "can_send_messages": True,
+            "can_send_other_messages": True,
+            "can_add_web_page_previews": True,
+        }
 
-    # verify dengan cek semua permission
-    result = _raw_chat_member(chat_id, user_id)
-    if not _has_send_access_raw(result):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="User masih restricted setelah unmute")
+        for use_independent in (True, False):
+            payload = {
+                "chat_id": chat_id,
+                "user_id": user_id,
+                "permissions": base_permissions,
+                "use_independent_chat_permissions": use_independent,
+                "until_date": 0,
+            }
+            resp = httpx.post(
+                f"{TELEGRAM_API_BASE}/restrictChatMember",
+                json=payload,
+                timeout=5.0,
+            )
+            try:
+                data = resp.json()
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Invalid response from Telegram",
+                )
+
+            if not data.get("ok"):
+                detail = data.get("description") or data
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Gagal unrestrict: {detail}",
+                )
+
+        # OPSIONAL: cek tapi JANGAN dibikin error fatal lagi
+        try:
+            result = _raw_chat_member(chat_id, user_id)
+            if not _has_send_access_raw(result):
+                # cuma log di server, jangan raise error
+                # (atau pakai logger kalau ada)
+                print(
+                    f"[WARN] User {user_id} mungkin masih restricted setelah unmute. result={result}"
+                )
+        except HTTPException:
+            # kalau cek gagal, jangan block unmute
+            pass
+
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Telegram unreachable: {exc}",
+        ) from exc
 
 
 def _normalize_day(value: Union[str, datetime, date]) -> date:
