@@ -7,9 +7,10 @@ interface LayoutProps {
   currentView: View;
   onViewChange: (view: View) => void;
   hideNav?: boolean;
+  avatarUrl?: string;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewChange, hideNav }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewChange, hideNav, avatarUrl }) => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-neon-blue/30 selection:text-white">
       {/* Background Ambient Glow */}
@@ -32,8 +33,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
                 </div>
                 <h1 className="font-bold text-lg tracking-tight text-white">HateSpeech<span className="text-primary-400">Mod</span></h1>
             </div>
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
-                <img src="https://picsum.photos/32/32" alt="Admin" className="w-full h-full rounded-full opacity-80 hover:opacity-100 transition-opacity" />
+            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Admin" className="w-full h-full rounded-full opacity-90 hover:opacity-100 transition-opacity object-cover" />
+                ) : (
+                  <div className="text-[10px] uppercase tracking-wide text-slate-300">You</div>
+                )}
             </div>
         </header>
 

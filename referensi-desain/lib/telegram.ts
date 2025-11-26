@@ -1,5 +1,12 @@
 type TelegramInitDataUnsafe = {
   chat?: { id: number };
+  user?: {
+    id: number;
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+    photo_url?: string;
+  };
 };
 
 type TelegramWebApp = {
@@ -29,6 +36,18 @@ export const getInitData = (): string => {
   }
   const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   return params.get("initData") || "";
+};
+
+export const getUserAvatar = (): string | undefined => {
+  const tg = getTelegram();
+  return tg?.initDataUnsafe?.user?.photo_url;
+};
+
+export const getUserName = (): string | undefined => {
+  const tg = getTelegram();
+  const user = tg?.initDataUnsafe?.user;
+  if (!user) return undefined;
+  return user.username || [user.first_name, user.last_name].filter(Boolean).join(" ");
 };
 
 export const getDebugChatId = (): string | null => {

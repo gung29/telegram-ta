@@ -19,6 +19,7 @@ import {
   EventEntry,
   HttpError,
 } from "./lib/api";
+import { getUserAvatar } from "./lib/telegram";
 
 const THRESHOLD_MIN = 0.2;
 const THRESHOLD_MAX = 0.95;
@@ -43,6 +44,7 @@ function App() {
   const [thresholdState, setThresholdState] = useState<Record<number, { value: number; mode: ModeSelection }>>({});
   const [retentionDraft, setRetentionDraft] = useState<number | null>(null);
   const [restricted, setRestricted] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
 
   const notify = (msg: string) => {
     if (typeof window !== "undefined") alert(msg);
@@ -158,6 +160,7 @@ function App() {
 
   useEffect(() => {
     loadGroups();
+    setAvatarUrl(getUserAvatar());
   }, []);
 
   useEffect(() => {
@@ -295,14 +298,14 @@ function App() {
 
   if (restricted) {
     return (
-      <Layout currentView={currentView} onViewChange={() => undefined} hideNav>
+      <Layout currentView={currentView} onViewChange={() => undefined} hideNav avatarUrl={avatarUrl}>
         <Restricted reason={restricted} />
       </Layout>
     );
   }
 
   return (
-    <Layout currentView={currentView} onViewChange={setCurrentView}>
+    <Layout currentView={currentView} onViewChange={setCurrentView} avatarUrl={avatarUrl}>
       {renderView()}
     </Layout>
   );
