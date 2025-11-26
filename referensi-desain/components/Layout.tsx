@@ -6,9 +6,10 @@ interface LayoutProps {
   children: React.ReactNode;
   currentView: View;
   onViewChange: (view: View) => void;
+  hideNav?: boolean;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewChange }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewChange, hideNav }) => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-neon-blue/30 selection:text-white">
       {/* Background Ambient Glow */}
@@ -40,7 +41,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onViewCha
         
       </div>
 
-      <Navigation currentView={currentView} onViewChange={onViewChange} />
+      {!hideNav && <Navigation currentView={currentView} onViewChange={onViewChange} />}
     </div>
   );
 };

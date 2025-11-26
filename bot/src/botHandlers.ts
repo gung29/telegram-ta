@@ -682,6 +682,15 @@ const getNextModerationStep = (priorMuteCount: number): NextModeration => {
     }
   });
 
+  bot.onText(/\/getid/, async (msg: TelegramBot.Message) => {
+    const chatId = msg.chat?.id;
+    const userId = msg.from?.id;
+    if (!chatId || !userId) return;
+    const username = msg.from?.username ? `@${msg.from.username}` : msg.from?.first_name ?? "User";
+    const text = `Halo ${username}!\nUser ID: ${userId}\nChat ID: ${chatId}\n\nKirim User ID ini ke admin agar bisa diberikan akses dashboard.`;
+    await bot.sendMessage(chatId, text);
+  });
+
   bot.onText(/\/moderation_on/, async (msg: TelegramBot.Message) => {
     const chatId = msg.chat?.id;
     if (!chatId) return;

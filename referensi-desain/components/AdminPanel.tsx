@@ -146,15 +146,30 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
 const handleUnmute = async (userId: number) => {
   setPendingAction(`unmute-${userId}`);
   try {
+    // 1) Coba hapus record backend kalau ada
     try {
-      await deleteMemberStatus(chatId, userId, "muted"); // 👈 pakai DELETE
+      await deleteMemberStatus(chatId, userId, "muted");
     } catch (err) {
-      if (err instanceof HttpError && err.status === 404) {
-        await unrestrictMember(chatId, userId); // fallback untuk user yang tersangkut tanpa record backend
+      // Kalau 404, abaikan (memang tidak ada record, mis. kasus "stuck")
+      if (!(err instanceof HttpError && err.status === 404)) {
+        throw err;
+      }
+    }
+
+    // 2) SELALU coba unrestrict di Telegram,
+    //    baik itu mute normal maupun "stuck"
+    try {
+      await unrestrictMember(chatId, userId);
+    } catch (err) {
+      // Kalau mau, bisa ignore error tertentu (mis. user sudah bebas)
+      if (err instanceof HttpError) {
+        // mis. log saja:
+        console.error("unrestrict failed", err.message);
       } else {
         throw err;
       }
     }
+
     await load();
   } catch (err) {
     if (err instanceof HttpError) notify(err.message);

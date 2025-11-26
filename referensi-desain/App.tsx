@@ -5,6 +5,7 @@ import { Stats } from './components/Stats';
 import { Logs } from './components/Logs';
 import { Verification } from './components/Verification';
 import { AdminPanel } from './components/AdminPanel';
+import { Restricted } from './components/Restricted';
 import { View } from './types';
 import {
   fetchGroups,
@@ -41,6 +42,7 @@ function App() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [thresholdState, setThresholdState] = useState<Record<number, { value: number; mode: ModeSelection }>>({});
   const [retentionDraft, setRetentionDraft] = useState<number | null>(null);
+  const [restricted, setRestricted] = useState<string | null>(null);
 
   const notify = (msg: string) => {
     if (typeof window !== "undefined") alert(msg);
@@ -114,7 +116,11 @@ function App() {
       setLastUpdated(new Date());
     } catch (err) {
       if (err instanceof HttpError) {
-        notify(`Gagal memuat data: ${err.message}`);
+        if (err.status === 401 || err.status === 403) {
+          setRestricted(err.message || "Dashboard hanya untuk admin grup");
+        } else {
+          notify(`Gagal memuat data: ${err.message}`);
+        }
       }
     } finally {
       setRefreshing(false);
@@ -138,7 +144,13 @@ function App() {
         setChatId(null);
       }
     } catch (err) {
-      if (err instanceof HttpError) notify(`Gagal mengambil grup: ${err.message}`);
+      if (err instanceof HttpError) {
+        if (err.status === 401 || err.status === 403) {
+          setRestricted(err.message || "Dashboard hanya untuk admin grup");
+        } else {
+          notify(`Gagal mengambil grup: ${err.message}`);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -149,15 +161,15 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!chatId) return;
+    if (!chatId || restricted) return;
     loadCore(chatId);
-  }, [chatId]);
+  }, [chatId, restricted]);
 
   useEffect(() => {
-    if (!autoRefresh || !chatId) return;
+    if (!autoRefresh || !chatId || restricted) return;
     const timer = setInterval(() => loadCore(chatId), 1000);
     return () => clearInterval(timer);
-  }, [autoRefresh, chatId]);
+  }, [autoRefresh, chatId, restricted]);
 
   const handleSettingsUpdate = async (payload: Partial<SettingsResponse>) => {
     if (!chatId) return;
@@ -280,6 +292,14 @@ function App() {
         return <Dashboard />;
     }
   };
+
+  if (restricted) {
+    return (
+      <Layout currentView={currentView} onViewChange={() => undefined} hideNav>
+        <Restricted reason={restricted} />
+      </Layout>
+    );
+  }
 
   return (
     <Layout currentView={currentView} onViewChange={setCurrentView}>
