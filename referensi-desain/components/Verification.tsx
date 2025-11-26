@@ -101,7 +101,6 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
 
         {showFilters && (
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            {(["pending", "hate", "non-hate", "all"] as const).map((key) => (
             {(["pending", "verified", "hate", "non-hate", "all"] as const).map((key) => (
               <button
                 key={key}
