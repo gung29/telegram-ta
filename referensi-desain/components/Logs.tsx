@@ -246,7 +246,8 @@ export const Logs: React.FC<Props> = ({ chatId }) => {
                           <MoreHorizontal size={16} className="text-slate-500" />
                         </button>
                         {openMenuId === log.id && (
-                          <div className="absolute right-0 top-8 z-20 bg-slate-900 border border-slate-700 rounded-lg shadow-xl w-48">
+                          <div className="absolute right-0 top-8 z-40 bg-slate-900 border border-slate-700 rounded-lg shadow-xl w-48"
+                            style={{ transform: "translateZ(0)" }}>
                             <button
                               onClick={() => {
                                 copyToClipboard(
