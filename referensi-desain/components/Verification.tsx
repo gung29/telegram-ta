@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { Check, X, Filter } from 'lucide-react';
+import { Check, X, Filter, Shield } from 'lucide-react';
 import { fetchEvents, verifyEvent, EventEntry, HttpError } from "../lib/api";
 
 dayjs.extend(relativeTime);
@@ -12,7 +12,7 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
   const [items, setItems] = useState<EventEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState<number | null>(null);
-  const [filter, setFilter] = useState<"all" | "pending" | "hate" | "non-hate">("pending");
+  const [filter, setFilter] = useState<"all" | "pending" | "verified" | "hate" | "non-hate">("pending");
   const [showFilters, setShowFilters] = useState(false);
 
   const notify = (msg: string) => {
@@ -56,12 +56,13 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
     }
   };
 
-  const pendingCount = useMemo(() => items.length, [items]);
+  const pendingCount = useMemo(() => items.filter((i) => !i.manual_verified).length, [items]);
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       const label = item.manual_label;
       const verified = item.manual_verified;
       if (filter === "pending") return !verified;
+      if (filter === "verified") return verified;
       if (filter === "hate") return verified && label === "hate";
       if (filter === "non-hate") return verified && label === "non-hate";
       return true;
@@ -101,6 +102,7 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
         {showFilters && (
           <div className="flex flex-wrap items-center gap-2 mb-4">
             {(["pending", "hate", "non-hate", "all"] as const).map((key) => (
+            {(["pending", "verified", "hate", "non-hate", "all"] as const).map((key) => (
               <button
                 key={key}
                 onClick={() => setFilter(key)}
@@ -110,7 +112,15 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
                     : "border-slate-700 text-slate-400 hover:text-white"
                 }`}
               >
-                {key === "pending" ? "Pending" : key === "hate" ? "Hate" : key === "non-hate" ? "Non-hate" : "All"}
+                {key === "pending"
+                  ? "Pending"
+                  : key === "verified"
+                  ? "Verified"
+                  : key === "hate"
+                  ? "Hate"
+                  : key === "non-hate"
+                  ? "Non-hate"
+                  : "All"}
               </button>
             ))}
           </div>
@@ -133,7 +143,9 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
                         <div 
                             key={item.id} 
                             id={`card-${item.id}`}
-                            className="glass-panel p-5 rounded-3xl border border-slate-700/50 shadow-lg transition-all duration-300 transform"
+                            className={`glass-panel p-5 rounded-3xl border border-slate-700/50 shadow-lg transition-all duration-300 transform ${
+                              item.manual_verified ? "border-green-600/50 bg-green-500/5" : ""
+                            }`}
                         >
                             <div className="flex items-center space-x-3 mb-4">
                                 <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden">
@@ -148,6 +160,11 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
                                     <div className={`text-xl font-mono font-bold ${ (item.prob_hate ?? 0) > 0.8 ? 'text-red-500' : 'text-orange-500'}`}>
                                         {Math.round((item.prob_hate ?? 0) * 100)}%
                                     </div>
+                                    {item.manual_verified && (
+                                      <div className="mt-1 inline-flex items-center text-green-400 text-[11px] font-semibold">
+                                        <Shield size={12} className="mr-1" /> Verified
+                                      </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -157,22 +174,24 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
                                 </p>
                             </div>
 
-                            <div className="flex space-x-3">
-                                <button 
-                                    disabled={verifying === item.id}
-                                    onClick={() => handleDecision(item.id, "non-hate")}
-                                    className={`flex-1 py-3 rounded-xl bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500 hover:text-white transition-all font-bold flex items-center justify-center ${verifying === item.id ? 'opacity-70 cursor-not-allowed' : ''}`}
-                                >
-                                    <Check size={18} className="mr-2" /> Mark Safe
-                                </button>
-                                <button 
-                                    disabled={verifying === item.id}
-                                    onClick={() => handleDecision(item.id, "hate")}
-                                    className={`flex-1 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all font-bold flex items-center justify-center ${verifying === item.id ? 'opacity-70 cursor-not-allowed' : ''}`}
-                                >
-                                    <X size={18} className="mr-2" /> Hate Speech
-                                </button>
-                            </div>
+                            {!item.manual_verified && (
+                              <div className="flex space-x-3">
+                                  <button 
+                                      disabled={verifying === item.id}
+                                      onClick={() => handleDecision(item.id, "non-hate")}
+                                      className={`flex-1 py-3 rounded-xl bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500 hover:text-white transition-all font-bold flex items-center justify-center ${verifying === item.id ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                  >
+                                      <Check size={18} className="mr-2" /> Mark Safe
+                                  </button>
+                                  <button 
+                                      disabled={verifying === item.id}
+                                      onClick={() => handleDecision(item.id, "hate")}
+                                      className={`flex-1 py-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white transition-all font-bold flex items-center justify-center ${verifying === item.id ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                  >
+                                      <X size={18} className="mr-2" /> Hate Speech
+                                  </button>
+                              </div>
+                            )}
                         </div>
                     ))}
                 </div>
