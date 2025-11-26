@@ -61,6 +61,9 @@ class StatsResponse(BaseModel):
     total_events: int
     blocked: int
     warned: int
+    muted: int = 0
+    warn_only: int = 0
+    banned: int = 0
     deleted: int
     top_offenders: List[str] = Field(default_factory=list)
 

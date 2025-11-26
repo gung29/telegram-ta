@@ -85,13 +85,13 @@ function App() {
   const metrics = useMemo(() => {
     const total = stats?.total_events ?? 0;
     const deleted = stats?.deleted ?? 0;
-    const warned = stats?.warned ?? 0;
-    const blocked = stats?.blocked ?? 0;
+    const warnOnly = stats?.warn_only ?? stats?.warned ?? 0;
+    const muted = stats?.muted ?? stats?.warned ?? 0;
     return [
       { title: "Total Actions", value: total, subtitle: "Last window" },
       { title: "Deleted", value: deleted, subtitle: "High confidence" },
-      { title: "Auto-Muted", value: warned, subtitle: "Temporary" },
-      { title: "Warnings", value: blocked, subtitle: "Escalated" },
+      { title: "Auto-Muted", value: muted, subtitle: "Temporary" },
+      { title: "Warnings", value: warnOnly, subtitle: "Escalated" },
     ];
   }, [stats]);
 

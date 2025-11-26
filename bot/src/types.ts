@@ -22,6 +22,9 @@ export interface StatsResponse {
   total_events: number;
   blocked: number;
   warned: number;
+  muted?: number;
+  warn_only?: number;
+  banned?: number;
   deleted: number;
   top_offenders: string[];
 }

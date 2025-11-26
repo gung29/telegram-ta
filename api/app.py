@@ -401,10 +401,14 @@ def stats_endpoint(
     )
     events = query.all()
     actionable = [event for event in events if event.action not in ACTION_IGNORE]
-    blocked = sum(1 for event in actionable if event.action in ACTION_BLOCKED)
-    warned = sum(1 for event in actionable if event.action in ACTION_WARNED)
+    warn_only = sum(1 for event in actionable if event.action == "warned")
+    muted = sum(1 for event in actionable if event.action == "muted")
+    banned = sum(1 for event in actionable if event.action in ACTION_BLOCKED)
+    # kompatibilitas lama
+    blocked = banned
+    warned = warn_only
     # Pesan yang dihapus mencakup semua tindakan moderasi aktif (warn/mute/ban/block).
-    deleted = sum(1 for event in actionable if event.action in ACTION_WARNED or event.action in ACTION_BLOCKED)
+    deleted = warn_only + muted + banned
     offenders = (
         db.query(ModerationEvent.username, func.count(ModerationEvent.id).label("cnt"))
         .filter(
@@ -425,6 +429,9 @@ def stats_endpoint(
         total_events=len(actionable),
         blocked=blocked,
         warned=warned,
+        muted=muted,
+        warn_only=warn_only,
+        banned=banned,
         deleted=deleted,
         top_offenders=top_offenders,
     )
