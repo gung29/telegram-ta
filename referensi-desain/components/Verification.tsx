@@ -161,7 +161,7 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
                                     </div>
                                     {item.manual_verified && (
                                       <div className="mt-1 inline-flex items-center text-green-400 text-[11px] font-semibold">
-                                        <Shield size={12} className="mr-1" /> Verified
+                                        <Shield size={12} className="mr-1" /> Verified: {item.manual_label === "hate" ? "Hate" : "Non-hate"}
                                       </div>
                                     )}
                                 </div>
