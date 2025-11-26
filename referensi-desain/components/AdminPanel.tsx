@@ -163,18 +163,17 @@ const handleUnmute = async (userId: number) => {
       if (!(err instanceof HttpError)) throw err;
     }
 
-    // 4) Cek lagi izin kirim pesan, lalu panggil unrestrict sekali lagi setelah pemeriksaan
+    // 4) Cek izin kirim pesan, lalu panggil unrestrict lagi setelah permission check
+    let stillRestricted = false;
     try {
       const perms = await checkPermissions(chatId, [userId]);
-      const stillRestricted = perms.some((p) => !p.can_send_messages);
-      await unrestrictMember(chatId, userId);
-      if (stillRestricted) {
-        // jika masih terdeteksi restricted, coba sekali lagi untuk memastikan
-        await unrestrictMember(chatId, userId);
-      }
+      stillRestricted = perms.some((p) => !p.can_send_messages);
     } catch (err) {
-      // abaikan kesalahan cek izin; unmute utama sudah dijalankan
       if (!(err instanceof HttpError)) throw err;
+    }
+    await unrestrictMember(chatId, userId); // panggilan kedua setelah permission check
+    if (stillRestricted) {
+      await unrestrictMember(chatId, userId); // satu kali lagi jika masih terdeteksi restricted
     }
 
     await load();
