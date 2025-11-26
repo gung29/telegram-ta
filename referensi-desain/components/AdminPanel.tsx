@@ -146,7 +146,8 @@ export const AdminPanel: React.FC<Props> = ({ chatId }) => {
 const handleUnmute = async (userId: number) => {
   setPendingAction(`unmute-${userId}`);
   try {
-    // 1) Lepas restrict langsung di Telegram (jika gagal, lempar agar user tahu)
+    // 1) Lepas restrict langsung di Telegram (panggil dua kali supaya tidak perlu klik ulang)
+    await unrestrictMember(chatId, userId);
     await unrestrictMember(chatId, userId);
 
     // 2) Bersihkan record backend (jika sudah hilang, abaikan 404)
