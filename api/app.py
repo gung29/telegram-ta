@@ -89,50 +89,6 @@ ACTION_IGNORE = {"allowed", "bypassed_admin"}
 ACTION_WARNED = {"warned", "muted"}
 ACTION_BLOCKED = {"blocked", "banned"}
 
-PERMISSION_KEYS = [
-    "can_send_messages",
-    "can_send_audios",
-    "can_send_documents",
-    "can_send_photos",
-    "can_send_videos",
-    "can_send_video_notes",
-    "can_send_voice_notes",
-    "can_send_polls",
-    "can_send_other_messages",
-    "can_add_web_page_previews",
-]
-
-def _raw_chat_member(chat_id: int, user_id: int) -> Dict[str, Any]:
-    try:
-        response = httpx.get(
-            f"{TELEGRAM_API_BASE}/getChatMember",
-            params={"chat_id": chat_id, "user_id": user_id},
-            timeout=5.0,
-        )
-    except httpx.RequestError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram unreachable: {exc}") from exc
-
-    try:
-        payload = response.json()
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid response from Telegram") from exc
-
-    if not payload.get("ok"):
-        detail = payload.get("description") or payload
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram error: {detail}")
-
-    return payload.get("result") or {}
-
-def _has_send_access_raw(result: Dict[str, Any]) -> bool:
-    status = result.get("status")
-    if status in {"kicked", "left"}:
-        return False
-
-    # kalau tidak ada field permission sama sekali:
-    if not any(k in result for k in PERMISSION_KEYS):
-        return status != "restricted"
-
-    return all(result.get(k) is not False for k in PERMISSION_KEYS)
 
 def require_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> None:
     if x_api_key != app_settings.api_key:
@@ -184,67 +140,57 @@ def _require_group_chat(chat_id: int) -> None:
 
 
 def _fetch_member_permission(chat_id: int, user_id: int) -> PermissionCheckResult:
-    result = _raw_chat_member(chat_id, user_id)
+    try:
+        response = httpx.get(
+            f"{TELEGRAM_API_BASE}/getChatMember",
+            params={"chat_id": chat_id, "user_id": user_id},
+            timeout=5.0,
+        )
+    except httpx.RequestError as exc:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram unreachable: {exc}") from exc
+
+    try:
+        payload = response.json()
+    except ValueError as exc:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid response from Telegram") from exc
+
+    if not payload.get("ok"):
+        detail = payload.get("description") or payload
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram error: {detail}")
+
+    result = payload.get("result") or {}
     status = result.get("status", "unknown")
-    can_send = _has_send_access_raw(result)
+    can_send = bool(result.get("can_send_messages", True))
     return PermissionCheckResult(user_id=user_id, status=status, can_send_messages=can_send)
 
 
 def _unrestrict_member(chat_id: int, user_id: int) -> None:
-    try:
-        # cukup panggil 1–2 kali dengan minimal permission
-        base_permissions = {
-            "can_send_messages": True,
-            "can_send_other_messages": True,
-            "can_add_web_page_previews": True,
+    def _call(use_independent: bool) -> None:
+        payload = {
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "permissions": ALLOW_PERMISSIONS,
+            "use_independent_chat_permissions": use_independent,
+            "until_date": 0,
         }
+        resp = httpx.post(f"{TELEGRAM_API_BASE}/restrictChatMember", json=payload, timeout=5.0)
+        data = resp.json()
+        if not data.get("ok"):
+            detail = data.get("description") or data
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Gagal unrestrict: {detail}")
 
-        for use_independent in (True, False):
-            payload = {
-                "chat_id": chat_id,
-                "user_id": user_id,
-                "permissions": base_permissions,
-                "use_independent_chat_permissions": use_independent,
-                "until_date": 0,
-            }
-            resp = httpx.post(
-                f"{TELEGRAM_API_BASE}/restrictChatMember",
-                json=payload,
-                timeout=5.0,
-            )
-            try:
-                data = resp.json()
-            except ValueError:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="Invalid response from Telegram",
-                )
+    try:
+        _call(True)
+        _call(False)
+    except httpx.RequestError as exc:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Telegram unreachable: {exc}") from exc
+    except ValueError as exc:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid response from Telegram") from exc
 
-            if not data.get("ok"):
-                detail = data.get("description") or data
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=f"Gagal unrestrict: {detail}",
-                )
-
-        # OPSIONAL: cek tapi JANGAN dibikin error fatal lagi
-        try:
-            result = _raw_chat_member(chat_id, user_id)
-            if not _has_send_access_raw(result):
-                # cuma log di server, jangan raise error
-                # (atau pakai logger kalau ada)
-                print(
-                    f"[WARN] User {user_id} mungkin masih restricted setelah unmute. result={result}"
-                )
-        except HTTPException:
-            # kalau cek gagal, jangan block unmute
-            pass
-
-    except httpx.RequestError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Telegram unreachable: {exc}",
-        ) from exc
+    # verify
+    result = _fetch_member_permission(chat_id, user_id)
+    if not result.can_send_messages:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="User masih restricted setelah unmute")
 
 
 def _normalize_day(value: Union[str, datetime, date]) -> date:
