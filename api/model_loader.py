@@ -88,6 +88,19 @@ class HateSpeechInference:
         self.model = load_model(model_dir, self.device)
         self._warmup()
 
+    def health(self) -> dict[str, str | bool]:
+        """Expose lightweight health metadata for the classifier components."""
+
+        model_loaded = getattr(self, "model", None) is not None
+        tokenizer_loaded = getattr(self, "tokenizer", None) is not None
+        device = str(getattr(self, "device", "unknown"))
+
+        return {
+            "model_loaded": model_loaded,
+            "tokenizer_loaded": tokenizer_loaded,
+            "device": device,
+        }
+
     def _warmup(self) -> None:
         try:
             encoded = self.tokenizer(
@@ -112,4 +125,19 @@ class HateSpeechInference:
         return prob_hate, prob_nonhate, pred
 
 
-classifier = HateSpeechInference(settings.model_path, settings.tokenizer_path)
+class _DummyClassifier:
+    device = "cpu"
+    tokenizer = None
+    model = None
+
+    def predict(self, text: str) -> Tuple[float, float, int]:  # pragma: no cover - only for fallback
+        return 0.5, 0.5, 0
+
+    def health(self) -> dict[str, str | bool]:  # pragma: no cover - only for fallback
+        return {"model_loaded": False, "tokenizer_loaded": False, "device": self.device}
+
+
+if os.getenv("SKIP_MODEL_LOAD", "0").lower() in {"1", "true", "yes"}:
+    classifier: HateSpeechInference | _DummyClassifier = _DummyClassifier()
+else:
+    classifier = HateSpeechInference(settings.model_path, settings.tokenizer_path)
