@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -183,8 +184,35 @@ async def api_stats(chat_id: int, window: str = "24h", ctx: Dict[str, Any] = Dep
 
 @app.get("/api/groups")
 async def api_groups(ctx: Dict[str, Any] = Depends(get_context)):
-    # List of groups is safe to share with any authenticated WebApp user; granular access is enforced per-chat.
-    return await proxy_core_api("GET", "/admin/groups")
+    groups = await proxy_core_api("GET", "/admin/groups")
+    user = ctx.get("user") if isinstance(ctx, dict) else None
+    user_id = int(user["id"]) if isinstance(user, dict) and "id" in user else None
+
+    # Super-admin (configured via env) tetap bisa melihat semua grup.
+    if user_id is None or (app_settings.admin_ids and user_id in app_settings.admin_ids):
+        return groups
+
+    async def has_access(group: Dict[str, Any]) -> bool:
+        chat_id = group.get("chat_id")
+        if chat_id is None:
+            return False
+        try:
+            await ensure_admin_access(int(chat_id), ctx)
+            return True
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_403_FORBIDDEN:
+                return False
+            raise
+
+    checks = await asyncio.gather(*(has_access(g) for g in groups), return_exceptions=True)
+    filtered_groups: list[Dict[str, Any]] = []
+    for group, result in zip(groups, checks):
+        if isinstance(result, Exception):
+            # Propagate error tak terduga agar terlihat di log/API.
+            raise result
+        if result:
+            filtered_groups.append(group)
+    return filtered_groups
 
 
 @app.get("/api/admins")
