@@ -223,8 +223,25 @@ def on_shutdown() -> None:
 
 
 @app.get("/healthz")
-def healthz() -> Dict[str, str]:
-    return {"status": "ok", "model_loaded": str(bool(classifier.session))}
+def healthz() -> Dict[str, Any]:
+    health: Dict[str, Any] = {
+        "status": "ok",
+        "model_loaded": False,
+        "tokenizer_loaded": False,
+        "device": None,
+        "error": None,
+    }
+
+    try:
+        model_health = classifier.health()
+        health.update(model_health)
+        ready = bool(model_health.get("model_loaded")) and bool(model_health.get("tokenizer_loaded"))
+        health["status"] = "ok" if ready else "degraded"
+    except Exception as exc:  # noqa: BLE001
+        health["status"] = "error"
+        health["error"] = str(exc)
+
+    return health
 
 
 @app.get("/metrics")
