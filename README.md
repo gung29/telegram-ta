@@ -3,7 +3,7 @@
 Telegram hate-speech moderation stack yang terdiri dari:
 
 - **FastAPI inference service** (`api/app.py`) menggunakan ONNXRuntime + `IndoBERTweet` (via `model/model.onnx`).
-- **Aiogram bot** (`bot/main.py`) dengan mode webhook, logging SQLite, dan perintah admin lengkap.
+- **Node.js/TypeScript bot** (`bot/src/index.ts` → build `bot/dist/index.js`) dengan mode webhook, logging SQLite, dan perintah admin lengkap.
 - **Telegram Mini App dashboard** (`web/main.py`) untuk mengubah threshold/mode, melihat statistik, mengelola whitelist, dan melakukan simulasi teks.
 
 > Plan implementasi mengacu pada dokumen `telegram-hate-speech-bot-plan.md`.
@@ -154,7 +154,7 @@ Aktifkan SSL + Telegram IP whitelist untuk webhook.
 
 ## Testing & Debugging
 
-- Jalankan `uvicorn` + `python bot/main.py --mode polling` di lokal dengan ngrok untuk webhook.
+- Jalankan `uvicorn` + `npm run dev --workspace bot` (atau `npm start` setelah build) di lokal dengan ngrok untuk webhook.
 - Gunakan `/test <teks>` untuk cek skor manual.
 - Gunakan `/stats 24h` atau `/stats 7d` di grup untuk ringkasan.
 - Mini App menyediakan export CSV via tombol “Export” (endpoint `/admin/export/{chat_id}` jika perlu integrasi tambahan).
