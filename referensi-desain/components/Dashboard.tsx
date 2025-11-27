@@ -33,9 +33,6 @@ type Props = {
   onModeSelect: (mode: "precision" | "balanced" | "recall") => void;
   onThresholdChange: (value: number) => void;
   onThresholdCommit: () => void;
-  retentionDays: number;
-  onRetentionChange: (value: number) => void;
-  onRetentionCommit: () => void;
 };
 
 export const Dashboard: React.FC<Props> = ({
@@ -57,9 +54,6 @@ export const Dashboard: React.FC<Props> = ({
   onModeSelect,
   onThresholdChange,
   onThresholdCommit,
-  retentionDays,
-  onRetentionChange,
-  onRetentionCommit,
 }) => {
   const mappedMetrics: Metric[] = [
     { ...metrics[0], icon: Shield, color: "text-blue-400", bg: "from-blue-500/10 to-transparent" },
@@ -171,6 +165,9 @@ export const Dashboard: React.FC<Props> = ({
                         : g.groupType || "Tidak diketahui"}
                     </span>
                   </p>
+                  <p className="text-[10px] text-slate-400 mb-2">
+                    Terakhir aktif: <span className="font-mono text-slate-300">{g.lastActive}</span>
+                  </p>
                   <div className="flex items-center justify-between">
                       <span className={`text-xs font-medium ${g.status ? 'text-neon-green' : 'text-slate-500'}`}>
                           {g.status ? 'Aktif' : 'Dijeda'}
@@ -275,44 +272,28 @@ export const Dashboard: React.FC<Props> = ({
             />
           </div>
         </div>
-
-        <div>
-          <h4 className="text-xs font-semibold text-slate-300 mb-2">RETENSI LOG (HARI)</h4>
-          <div className="px-3 py-3 rounded-2xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
-            <input
-              type="number"
-              min={1}
-              max={90}
-              value={retentionDays}
-              onChange={(e) => onRetentionChange(Number(e.target.value) || 0)}
-              onBlur={onRetentionCommit}
-              className="bg-transparent border-none outline-none text-sm text-white font-mono w-16 text-right focus-visible:ring-1 focus-visible:ring-primary-500 focus-visible:border-primary-500 rounded"
-            />
-            <span className="text-[10px] text-slate-500 uppercase tracking-widest">hari</span>
-          </div>
-        </div>
       </div>
 
       {/* Live Feed Teaser */}
       <div className="glass-panel rounded-2xl p-4 border-l-4 border-neon-blue">
-          <div className="flex justify-between items-center mb-2">
-              <h4 className="font-bold text-white">Aktivitas live</h4>
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-blue opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-blue"></span>
-              </span>
-          </div>
-          <div className="space-y-3">
-              {liveActivity.length === 0 && <p className="text-sm text-slate-400">Belum ada aktivitas terbaru.</p>}
-              {liveActivity.map(item => (
-                <div key={item.id} className="text-sm text-slate-300 border-b border-slate-800 pb-2 last:border-0">
-                  <span className={`${item.tone === 'danger' ? 'text-red-400' : item.tone === 'warning' ? 'text-orange-400' : 'text-slate-400'} font-mono font-bold text-xs`}>
-                    [{item.badge}]
-                  </span>{" "}
-                  {item.text}
-                </div>
-              ))}
-          </div>
+        <div className="flex justify-between items-center mb-2">
+            <h4 className="font-bold text-white">Aktivitas live</h4>
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neon-blue opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-neon-blue"></span>
+            </span>
+        </div>
+        <div className="space-y-3">
+            {liveActivity.length === 0 && <p className="text-sm text-slate-400">Belum ada aktivitas terbaru.</p>}
+            {liveActivity.map(item => (
+              <div key={item.id} className="text-sm text-slate-300 border-b border-slate-800 pb-2 last:border-0">
+                <span className={`${item.tone === 'danger' ? 'text-red-400' : item.tone === 'warning' ? 'text-orange-400' : 'text-slate-400'} font-mono font-bold text-xs`}>
+                  [{item.badge}]
+                </span>{" "}
+                {item.text}
+              </div>
+            ))}
+        </div>
       </div>
 
     </div>

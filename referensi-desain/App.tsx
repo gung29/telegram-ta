@@ -42,7 +42,6 @@ function App() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [thresholdState, setThresholdState] = useState<Record<number, { value: number; mode: ModeSelection }>>({});
-  const [retentionDraft, setRetentionDraft] = useState<number | null>(null);
   const [restricted, setRestricted] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
 
@@ -60,7 +59,6 @@ function App() {
   }, [settings]);
   const modeSelection: ModeSelection = currentThresholdState?.mode ?? derivedModeFromSettings;
   const thresholdPreview = currentThresholdState?.value ?? settings?.threshold ?? 0.62;
-  const retentionValue = retentionDraft ?? settings?.retention_days ?? 30;
 
   const liveActivity = useMemo(() => {
     return events.slice(0, 3).map((ev) => {
@@ -104,7 +102,6 @@ function App() {
         fetchEvents(selectedChat, 5, 0),
       ]);
       setSettings(s);
-      setRetentionDraft(s.retention_days);
       setThresholdState((prev) => ({
         ...prev,
         [selectedChat]: {
@@ -192,7 +189,6 @@ function App() {
     try {
       const updated = await updateSettings(chatId, payload);
       setSettings(updated);
-      setRetentionDraft(updated.retention_days);
     } catch (err) {
       if (err instanceof HttpError) notify((err as Error).message ?? "Gagal menyimpan pengaturan");
     }
@@ -235,16 +231,14 @@ function App() {
     setThresholdState((prev) => ({ ...prev, [chatId]: { ...state, value } }));
   };
 
-  const handleRetentionDraftChange = (value: number) => {
-    setRetentionDraft(value);
-  };
-
-  const commitRetention = async () => {
-    if (!settings || retentionDraft === null || retentionDraft === settings.retention_days) return;
-    await handleSettingsUpdate({ retention_days: retentionDraft });
-  };
-
   const lastUpdateText = lastUpdated ? `Updated ${Math.max(0, Math.floor((Date.now() - lastUpdated.getTime()) / 1000))}s ago` : "Just now";
+
+  const formatLastActive = (value?: string | null) => {
+    if (!value) return "Belum ada aktivitas";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
+  };
 
   const dashboardGroups = groups.map((g) => ({
     id: g.chat_id,
@@ -252,7 +246,7 @@ function App() {
     cid: `${g.chat_id}`,
     active: g.chat_id === chatId,
     status: g.enabled,
-    lastActive: g.last_active,
+    lastActive: formatLastActive(g.last_active),
     groupType: g.group_type ?? undefined,
   }));
 
@@ -291,9 +285,6 @@ function App() {
             onModeSelect={handleModeSelect}
             onThresholdChange={handleThresholdPreviewChange}
             onThresholdCommit={commitThreshold}
-            retentionDays={retentionValue}
-            onRetentionChange={handleRetentionDraftChange}
-            onRetentionCommit={commitRetention}
           />
         );
       case View.STATS:
