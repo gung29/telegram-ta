@@ -120,6 +120,10 @@ function App() {
       if (err instanceof HttpError) {
         if (err.status === 401 || err.status === 403) {
           setRestricted(err.message || "Dashboard hanya untuk admin grup");
+          setChatId(null);
+          setSettings(null);
+          setStats(null);
+          setEvents([]);
         } else {
           notify(`Gagal memuat data: ${err.message}`);
         }
@@ -135,6 +139,7 @@ function App() {
       const data = await fetchGroups();
       setGroups(data);
       if (data.length) {
+        setRestricted(null);
         const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
         const qChat = params.get("chat_id");
         const candidate = qChat ? Number(qChat) : null;
@@ -144,11 +149,19 @@ function App() {
         await loadCore(target);
       } else {
         setChatId(null);
+        setSettings(null);
+        setStats(null);
+        setEvents([]);
+        setRestricted("Dashboard hanya untuk admin grup");
       }
     } catch (err) {
       if (err instanceof HttpError) {
         if (err.status === 401 || err.status === 403) {
           setRestricted(err.message || "Dashboard hanya untuk admin grup");
+          setChatId(null);
+          setSettings(null);
+          setStats(null);
+          setEvents([]);
         } else {
           notify(`Gagal mengambil grup: ${err.message}`);
         }
