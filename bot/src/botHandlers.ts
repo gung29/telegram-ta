@@ -357,7 +357,7 @@ const liftRestrictions = async (bot: TelegramBot, chatId: number, userId: number
   }
 };
 
-const releaseManualStatus = async (bot: TelegramBot, chatId: number, userId: number, status: MemberStatus): Promise<boolean> => {
+const releaseManualStatus = async (bot: TelegramBot, chatId: number, userId: number, status: MemberStatus) => {
   try {
     if (status === "muted") {
       await liftRestrictions(bot, chatId, userId);
@@ -365,16 +365,8 @@ const releaseManualStatus = async (bot: TelegramBot, chatId: number, userId: num
       await bot.unbanChatMember(chatId, userId, { only_if_banned: true });
     }
     clearManualStatus(chatId, userId);
-    try {
-      await removeMemberModeration(chatId, userId, status);
-    } catch (error) {
-      // jika record sudah tidak ada, lanjut saja
-      logger.warn({ err: error, chatId, userId, status }, "Failed to remove backend record on release");
-    }
-    return true;
   } catch (error) {
     logger.warn({ err: error, chatId, userId, status }, "Failed to release manual status");
-    return false;
   }
 };
 
@@ -471,7 +463,7 @@ const applyBan = async (
 
 
 
-const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration): Promise<boolean> => {
+const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration) => {
   logger.info({ chatId, userId: member.user_id }, "Attempting to UNMUTE user");
 
   try {
@@ -479,34 +471,19 @@ const releaseMuteIfExpired = async (bot: TelegramBot, chatId: number, member: Me
 
     logger.info({ chatId, userId: member.user_id }, "User successfully unmuted");
 
-    try {
-      await removeMemberModeration(chatId, member.user_id, member.status);
-    } catch (error) {
-      logger.warn({ err: error, chatId, userId: member.user_id }, "Failed to remove backend mute record after unmute");
-    }
+    await removeMemberModeration(chatId, member.user_id, member.status);
     clearManualStatus(chatId, member.user_id);
-    return true;
+
   } catch (err) {
     logger.error({ err, chatId, userId: member.user_id }, "FAILED to unmute user");
-    return false;
   }
 };
 
 
-const releaseBanIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration): Promise<boolean> => {
-  try {
-    await bot.unbanChatMember(chatId, member.user_id, { only_if_banned: true });
-    try {
-      await removeMemberModeration(chatId, member.user_id, member.status);
-    } catch (error) {
-      logger.warn({ err: error, chatId, userId: member.user_id }, "Failed to remove backend ban record after unban");
-    }
-    clearManualStatus(chatId, member.user_id);
-    return true;
-  } catch (err) {
-    logger.error({ err, chatId, userId: member.user_id }, "FAILED to unban user");
-    return false;
-  }
+const releaseBanIfExpired = async (bot: TelegramBot, chatId: number, member: MemberModeration) => {
+  await bot.unbanChatMember(chatId, member.user_id, { only_if_banned: true });
+  await removeMemberModeration(chatId, member.user_id, member.status);
+  clearManualStatus(chatId, member.user_id);
 };
 
 const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
@@ -521,10 +498,7 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
           const expiresAtMs = parseExpiresAtMs(member.expires_at);
           // jika tidak ada expires_at (korup) atau sudah lewat masa berlaku -> lepaskan mute agar tidak nyangkut
           if (expiresAtMs === null || expiresAtMs <= now) {
-            const released = await releaseMuteIfExpired(bot, chatId, member);
-            if (released) continue;
-            // kalau gagal unmute, tetap simpan supaya dicoba lagi di siklus berikutnya
-            nextStatuses.set(member.user_id, member.status);
+            await releaseMuteIfExpired(bot, chatId, member);
             continue;
           }
 
@@ -554,9 +528,7 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
         } else if (member.status === "banned") {
           const expiresAtMs = parseExpiresAtMs(member.expires_at);
           if (expiresAtMs !== null && expiresAtMs <= now) {
-            const released = await releaseBanIfExpired(bot, chatId, member);
-            if (released) continue;
-            nextStatuses.set(member.user_id, member.status);
+            await releaseBanIfExpired(bot, chatId, member);
             continue;
           }
 
@@ -595,11 +567,7 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
       }
     });
     for (const [userId, status] of releases) {
-      const released = await releaseManualStatus(bot, chatId, userId, status);
-      if (!released) {
-        // simpan lagi supaya dicoba ulang
-        nextStatuses.set(userId, status);
-      }
+      await releaseManualStatus(bot, chatId, userId, status);
     }
     manualStatusCache.set(chatId, nextStatuses);
   } catch (error) {
