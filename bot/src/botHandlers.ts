@@ -225,14 +225,26 @@ const getOffsetSuffix = (timeZone: string): string => {
 
 const LOCAL_TZ_OFFSET = getOffsetSuffix(LOCAL_TIMEZONE);
 
-const parseExpiresAtMs = (value?: string | null): number | undefined => {
-  if (!value) return undefined;
-  const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
-  const normalized = hasTimezone ? value : `${value}${LOCAL_TZ_OFFSET}`;
+const normalizeIsoForParse = (value: string): string => {
+  const timePart = value.includes("T") ? value : value.replace(" ", "T");
+  const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(timePart);
+  const withZone = hasTimezone ? timePart : `${timePart}${LOCAL_TZ_OFFSET}`;
+
+  // Trim fractional seconds to milliseconds; some backends return microseconds which Date.parse rejects.
+  const match = withZone.match(/^(.*?)(\.\d+)?([zZ]|[+-]\d{2}:?\d{2})$/);
+  if (!match) return withZone;
+  const [, datetime, fractional = "", zone] = match;
+  const trimmedFractional = fractional.length > 4 ? `.${fractional.slice(1, 4)}` : fractional;
+  return `${datetime}${trimmedFractional}${zone}`;
+};
+
+const parseExpiresAtMs = (value?: string | null): number | null => {
+  if (!value) return null;
+  const normalized = normalizeIsoForParse(value);
   const parsed = Date.parse(normalized);
   if (Number.isNaN(parsed)) {
-    logger.warn({ expiresAt: value }, "Failed to parse expires_at from backend");
-    return undefined;
+    logger.warn({ expiresAt: value, normalized }, "Failed to parse expires_at from backend; treating as expired");
+    return Date.now() - 1; // treat as expired to avoid permanent restriction
   }
   return parsed;
 };
@@ -484,8 +496,8 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
       try {
         if (member.status === "muted") {
           const expiresAtMs = parseExpiresAtMs(member.expires_at);
-          // jika sudah lewat masa berlaku di backend -> lepaskan mute
-          if (expiresAtMs !== undefined && expiresAtMs <= now) {
+          // jika tidak ada expires_at (korup) atau sudah lewat masa berlaku -> lepaskan mute agar tidak nyangkut
+          if (expiresAtMs === null || expiresAtMs <= now) {
             await releaseMuteIfExpired(bot, chatId, member);
             continue;
           }
@@ -507,7 +519,7 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
             throw error;
           }
 
-          const until = expiresAtMs !== undefined ? Math.floor(expiresAtMs / 1000) : undefined;
+          const until = Math.floor(expiresAtMs / 1000);
           await bot.restrictChatMember(
             chatId,
             member.user_id,
@@ -515,7 +527,7 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
           );
         } else if (member.status === "banned") {
           const expiresAtMs = parseExpiresAtMs(member.expires_at);
-          if (expiresAtMs !== undefined && expiresAtMs <= now) {
+          if (expiresAtMs !== null && expiresAtMs <= now) {
             await releaseBanIfExpired(bot, chatId, member);
             continue;
           }
