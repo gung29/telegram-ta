@@ -171,10 +171,10 @@ const handleUnmute = async (userId: number) => {
     } catch (err) {
       if (!(err instanceof HttpError)) throw err;
     }
-    await unrestrictMember(chatId, userId); // panggilan kedua setelah permission check
-    if (stillRestricted) {
-      await unrestrictMember(chatId, userId); // satu kali lagi jika masih terdeteksi restricted
-    }
+    // await unrestrictMember(chatId, userId); // panggilan kedua setelah permission check
+    // if (stillRestricted) {
+    //   await unrestrictMember(chatId, userId); // satu kali lagi jika masih terdeteksi restricted
+    // }
 
     await load();
   } catch (err) {
