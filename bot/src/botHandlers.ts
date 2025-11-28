@@ -1088,7 +1088,7 @@ const getNextModerationStep = (priorMuteCount: number): NextModeration => {
       if (step.action === "muted" && rapidOffenses > 1 && muteDuration) {
         // muteDuration = Math.min(360, muteDuration + (rapidOffenses - 1) * 5);
         // 1 menit (jangan dimute tambahan) kalau cuma 1 pelanggaran cepat
-        muteDuration = 60
+        muteDuration = 1
         moderationReason = `${moderationReason} · eskalasi karena spam cepat (${rapidOffenses} pelanggaran dalam 15 menit)`;
       }
 
