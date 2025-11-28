@@ -502,21 +502,10 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
       try {
         if (member.status === "muted") {
           const expiresAtMs = parseExpiresAtMs(member.expires_at);
-          // jika tidak ada expires_at (korup) atau sudah lewat masa berlaku -> lepaskan mute agar tidak nyangkut
-          if (expiresAtMs === null || expiresAtMs <= now) {
-            await releaseMuteIfExpired(bot, chatId, member);
-            continue;
-          }
 
-          // jika admin Telegram sudah meng-unmute secara manual,
-          // status user di chat biasanya bukan lagi "restricted" atau sudah bisa kirim pesan
+          let chatMember: TelegramBot.ChatMember | undefined;
           try {
-            const chatMember = await bot.getChatMember(chatId, member.user_id);
-            if (chatMember && (chatMember.status !== "restricted" || hasSendAccess(chatMember))) {
-              // hormati unmute manual: hapus record backend, jangan remute
-              await removeMemberModeration(chatId, member.user_id, member.status);
-              continue;
-            }
+            chatMember = await bot.getChatMember(chatId, member.user_id);
           } catch (error) {
             if (isInvalidUserError(error)) {
               logger.warn({ chatId, memberId: member.user_id }, "Skip enforcement for user not found (getChatMember)");
@@ -525,12 +514,22 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
             throw error;
           }
 
-          const until = Math.floor(expiresAtMs / 1000);
-          await bot.restrictChatMember(
-            chatId,
-            member.user_id,
-            { permissions: mutePermissions, use_independent_chat_permissions: true, until_date: until } as any,
-          );
+          // 1) Kalau Telegram sudah tidak menganggap user restricted (misalnya mute sudah habis
+          //    atau admin unmute manual), hapus record backend
+          if (!chatMember || chatMember.status !== "restricted" || hasSendAccess(chatMember)) {
+            await removeMemberModeration(chatId, member.user_id, member.status);
+            clearManualStatus(chatId, member.user_id);
+            continue;
+          }
+
+          // 2) Kalau menurut backend sudah expired, force unmute
+          if (expiresAtMs === null || expiresAtMs <= now) {
+            await releaseMuteIfExpired(bot, chatId, member);
+            continue;
+          }
+
+          // 3) Kalau masih restricted dan belum expired menurut backend,
+          //    biarkan saja — JANGAN re-restrictChatMember lagi di sini.
         } else if (member.status === "banned") {
           const expiresAtMs = parseExpiresAtMs(member.expires_at);
           if (expiresAtMs !== null && expiresAtMs <= now) {
