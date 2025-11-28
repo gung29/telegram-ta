@@ -194,9 +194,15 @@ const resolveChatPermissions = async (bot: TelegramBot, chatId: number): Promise
 const hasSendAccess = (member: TelegramBot.ChatMember | undefined) => {
   if (!member) return false;
   if (member.status === "kicked" || member.status === "left") return false;
+
   const perms = (member as TelegramBot.ChatMember & { permissions?: ExtendedPermissions }).permissions;
+
+  // Kalau Telegram tidak kasih objek permissions,
+  // anggap aman selama status-nya bukan "restricted"
   if (!perms) return member.status !== "restricted";
-  return PERMISSION_KEYS.every((key) => perms[key] !== false);
+
+  // Cukup pastikan dia boleh kirim pesan biasa
+  return perms.can_send_messages !== false;
 };
 
 const LOCAL_TIMEZONE = "Asia/Singapore";
@@ -320,14 +326,14 @@ const ensureGroupSync = async (bot: TelegramBot, chat: TelegramBot.Chat) => {
 
 const liftRestrictions = async (bot: TelegramBot, chatId: number, userId: number) => {
   const chatPerms = await resolveChatPermissions(bot, chatId);
-  const mergedPerms = { ...allowPermissions, ...chatPerms };
+  const perms: ExtendedPermissions = chatPerms ?? allowPermissions;
 
   const request = async (useIndependent: boolean) => {
     await bot.restrictChatMember(
       chatId,
       userId,
       {
-        permissions: mergedPerms,
+        permissions: perms,
         use_independent_chat_permissions: useIndependent,
         until_date: 0,
       } as any,
@@ -345,7 +351,7 @@ const liftRestrictions = async (bot: TelegramBot, chatId: number, userId: number
       chatId,
       userId,
       {
-        permissions: mergedPerms,
+        permissions: perms,
         use_independent_chat_permissions: false,
         until_date: 0,
       } as any,
