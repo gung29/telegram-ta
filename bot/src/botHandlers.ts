@@ -1094,7 +1094,7 @@ const getNextModerationStep = (priorMuteCount: number): NextModeration => {
         muteDuration = Math.min(360, muteDuration + (rapidOffenses - 1) * 5);
         // 1 menit
         // muteDuration = 1
-        moderationReason = `${moderationReason} · eskalasi karena spam cepat (${rapidOffenses} pelanggaran dalam 15 menit)`;
+        moderationReason = `${moderationReason} · eskalasi karena spam cepat (${rapidOffenses - 1}x dalam 15 menit)`;
       }
 
       // Di grup biasa (bukan supergroup), Telegram tidak mengizinkan restrictChatMember.
