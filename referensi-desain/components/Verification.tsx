@@ -79,7 +79,7 @@ export const Verification: React.FC<Props> = ({ chatId }) => {
         <div className="flex justify-between items-center mb-6">
             <div>
                 <h2 className="text-2xl font-bold text-white">Manual verification</h2>
-                <p className="text-sm text-slate-400">Review pesan yang flagged</p>
+                <p className="text-sm text-slate-400">Verifikasi pesan yang dikirim user</p>
             </div>
             <div className="flex items-center space-x-2">
               <button

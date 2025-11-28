@@ -249,7 +249,7 @@ const handleUnban = async (userId: number) => {
         {/* Header */}
         <div>
             <h2 className="text-2xl font-bold text-white mb-1">Akses admin</h2>
-            <p className="text-sm text-slate-400">Kelola permissions dan parameter model</p>
+            <p className="text-sm text-slate-400">Kelola hak akses admin dan user</p>
         </div>
 
         {/* Admins List */}
@@ -307,7 +307,7 @@ const handleUnban = async (userId: number) => {
              
              <div className="flex items-center space-x-2 mb-4">
                  <Zap className="text-neon-purple" size={20} />
-                 <h3 className="font-bold text-white">Tester moderation AI</h3>
+                 <h3 className="font-bold text-white">Uji Moderasi</h3>
              </div>
 
              <textarea

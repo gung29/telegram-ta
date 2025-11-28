@@ -130,7 +130,7 @@ export const Dashboard: React.FC<Props> = ({
 
       {/* Monitored Groups */}
       <div>
-        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Channel yang dipantau</h3>
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Grup yang dipantau</h3>
         <div className="flex overflow-x-auto space-x-3 pb-2 scrollbar-hide">
             {groups.map(g => (
                 <button
@@ -199,7 +199,7 @@ export const Dashboard: React.FC<Props> = ({
 
       {/* Summary Stats Grid */}
         <div>
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Dampak moderation</h3>
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Hasil Moderasi</h3>
         <div className="grid grid-cols-2 gap-3">
             {mappedMetrics.map((m, idx) => (
               <StatCard 

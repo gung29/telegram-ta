@@ -103,8 +103,8 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
         <div className="glass-panel p-5 rounded-3xl border border-slate-700/50">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <h3 className="text-white font-bold mb-1">Aktivitas moderation</h3>
-                <p className="text-xs text-slate-400">Jendela: {windowKey}</p>
+                <h3 className="text-white font-bold mb-1">Aktivitas moderasi</h3>
+                <p className="text-xs text-slate-400">Durasi: {windowKey}</p>
               </div>
               {loading && <span className="text-xs text-slate-400">Memuat…</span>}
             </div>
@@ -185,7 +185,7 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
         <div>
             <div className="flex justify-between items-center mb-3 px-1">
                 <h3 className="text-white font-bold">Top pelanggar</h3>
-                <span className="text-xs text-slate-500">Jendela: {windowKey}</span>
+                <span className="text-xs text-slate-500">Durasi: {windowKey}</span>
             </div>
             <div className="space-y-3">
                 {topOffenders.length === 0 && <p className="text-slate-400 text-sm">Belum ada data.</p>}
