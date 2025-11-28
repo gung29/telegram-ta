@@ -202,6 +202,41 @@ const hasSendAccess = (member: TelegramBot.ChatMember | undefined) => {
 const LOCAL_TIMEZONE = "Asia/Singapore";
 const WARN_LIMIT_PER_DAY = 3;
 
+const getOffsetSuffix = (timeZone: string): string => {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "shortOffset",
+    }).formatToParts(new Date());
+    const zone = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT";
+    const match = zone.match(/GMT([+-]?)(\d{1,2})(?::?(\d{2}))?/i);
+    if (!match) return "+00:00";
+    const sign = match[1] === "-" ? "-" : "+";
+    const hours = match[2].padStart(2, "0");
+    const minutes = match[3] ?? "00";
+    return `${sign}${hours}:${minutes}`;
+  } catch (error) {
+    logger.warn({ err: error }, "Failed to resolve timezone offset");
+    return "+00:00";
+  }
+};
+
+const LOCAL_TZ_OFFSET = getOffsetSuffix(LOCAL_TIMEZONE);
+
+const parseExpiresAtMs = (value?: string | null): number | undefined => {
+  if (!value) return undefined;
+  const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
+  const normalized = hasTimezone ? value : `${value}${LOCAL_TZ_OFFSET}`;
+  const parsed = Date.parse(normalized);
+  if (Number.isNaN(parsed)) {
+    logger.warn({ expiresAt: value }, "Failed to parse expires_at from backend");
+    return undefined;
+  }
+  return parsed;
+};
+
 const offenseKey = (chatId: number, userId: number) => `${chatId}:${userId}`;
 
 const getLocalDayKey = () =>
@@ -448,8 +483,9 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
     for (const member of members) {
       try {
         if (member.status === "muted") {
+          const expiresAtMs = parseExpiresAtMs(member.expires_at);
           // jika sudah lewat masa berlaku di backend -> lepaskan mute
-          if (member.expires_at && new Date(member.expires_at).getTime() <= now) {
+          if (expiresAtMs !== undefined && expiresAtMs <= now) {
             await releaseMuteIfExpired(bot, chatId, member);
             continue;
           }
@@ -471,14 +507,15 @@ const enforceManualStatuses = async (bot: TelegramBot, chatId: number) => {
             throw error;
           }
 
-          const until = member.expires_at ? Math.floor(new Date(member.expires_at).getTime() / 1000) : undefined;
+          const until = expiresAtMs !== undefined ? Math.floor(expiresAtMs / 1000) : undefined;
           await bot.restrictChatMember(
             chatId,
             member.user_id,
             { permissions: mutePermissions, use_independent_chat_permissions: true, until_date: until } as any,
           );
         } else if (member.status === "banned") {
-          if (member.expires_at && new Date(member.expires_at).getTime() <= now) {
+          const expiresAtMs = parseExpiresAtMs(member.expires_at);
+          if (expiresAtMs !== undefined && expiresAtMs <= now) {
             await releaseBanIfExpired(bot, chatId, member);
             continue;
           }

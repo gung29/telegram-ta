@@ -134,6 +134,19 @@ def _serialize_group(settings_row: GroupSettings) -> GroupSummary:
     )
 
 
+def _serialize_member_moderation(record: MemberModeration) -> MemberModerationSchema:
+    return MemberModerationSchema(
+        id=record.id,
+        chat_id=record.chat_id,
+        user_id=record.user_id,
+        username=record.username,
+        status=record.status,
+        reason=record.reason,
+        expires_at=_ensure_local_datetime(record.expires_at),
+        created_at=_ensure_local_datetime(record.created_at) or now_local(),
+    )
+
+
 def _require_group_chat(chat_id: int) -> None:
     if chat_id >= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="chat_id harus berupa ID grup Telegram (negatif)")
@@ -541,7 +554,7 @@ def list_member_moderations(
     if status:
         query = query.filter(MemberModeration.status == status)
     members = query.order_by(desc(MemberModeration.created_at)).all()
-    return members
+    return [_serialize_member_moderation(member) for member in members]
 
 
 @app.post("/admin/groups/{chat_id}/members", response_model=MemberModerationSchema)
@@ -581,7 +594,7 @@ def upsert_member_moderation(
         db.add(record)
     db.commit()
     db.refresh(record)
-    return record
+    return _serialize_member_moderation(record)
 
 
 @app.delete("/admin/groups/{chat_id}/members/{user_id}")
