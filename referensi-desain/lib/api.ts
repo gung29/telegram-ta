@@ -8,6 +8,10 @@ export class HttpError extends Error {
   }
 }
 
+export type GroupMode = "ketat" | "moderat" | "longgar";
+export type LegacyGroupMode = "precision" | "balanced" | "recall";
+export type ApiGroupMode = GroupMode | LegacyGroupMode;
+
 const baseFetch = async <T>(input: RequestInfo, init?: RequestInit): Promise<T> => {
   const response = await fetch(input, {
     ...init,
@@ -39,7 +43,7 @@ export interface SettingsResponse {
   chat_id: number;
   enabled: boolean;
   threshold: number;
-  mode: string;
+  mode: ApiGroupMode;
   retention_days: number;
   updated_at: string;
 }
@@ -67,7 +71,7 @@ export interface GroupSummary {
   chat_id: number;
   enabled: boolean;
   threshold: number;
-  mode: string;
+  mode: ApiGroupMode;
   updated_at: string;
   title?: string;
   group_type?: string;

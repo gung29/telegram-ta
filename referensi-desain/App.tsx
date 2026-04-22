@@ -13,6 +13,7 @@ import {
   updateSettings,
   fetchStats,
   fetchEvents,
+  GroupMode,
   GroupSummary,
   SettingsResponse,
   StatsResponse,
@@ -23,11 +24,23 @@ import { getUserAvatar } from "./lib/telegram";
 
 const THRESHOLD_MIN = 0.2;
 const THRESHOLD_MAX = 0.95;
-type ModeSelection = SettingsResponse["mode"] | "custom";
-const MODE_PRESETS: Record<SettingsResponse["mode"], number> = {
-  precision: 0.561,
-  balanced: 0.561,
-  recall: 0.384,
+type ModeSelection = GroupMode | "custom";
+const MODE_PRESETS: Record<GroupMode, number> = {
+  ketat: 0.72,
+  moderat: 0.56,
+  longgar: 0.38,
+};
+
+const LEGACY_MODE_MAP: Record<string, GroupMode> = {
+  precision: "ketat",
+  balanced: "moderat",
+  recall: "longgar",
+};
+
+const normalizeMode = (mode?: SettingsResponse["mode"] | null): GroupMode => {
+  if (!mode) return "moderat";
+  if (mode === "ketat" || mode === "moderat" || mode === "longgar") return mode;
+  return LEGACY_MODE_MAP[mode] ?? "moderat";
 };
 
 function App() {
@@ -53,12 +66,13 @@ function App() {
 
   const currentThresholdState = chatId ? thresholdState[chatId] : undefined;
   const derivedModeFromSettings: ModeSelection = useMemo(() => {
-    if (!settings) return "balanced";
-    const preset = MODE_PRESETS[settings.mode];
-    return Math.abs(settings.threshold - preset) > 0.005 ? "custom" : settings.mode;
+    if (!settings) return "moderat";
+    const mode = normalizeMode(settings.mode);
+    const preset = MODE_PRESETS[mode];
+    return Math.abs(settings.threshold - preset) > 0.005 ? "custom" : mode;
   }, [settings]);
   const modeSelection: ModeSelection = currentThresholdState?.mode ?? derivedModeFromSettings;
-  const thresholdPreview = currentThresholdState?.value ?? settings?.threshold ?? 0.62;
+  const thresholdPreview = currentThresholdState?.value ?? settings?.threshold ?? MODE_PRESETS.moderat;
 
   const liveActivity = useMemo(() => {
     return events.slice(0, 3).map((ev) => {
@@ -101,13 +115,13 @@ function App() {
         fetchStats(selectedChat, "24h"),
         fetchEvents(selectedChat, 5, 0),
       ]);
+      const normalizedMode = normalizeMode(s.mode);
       setSettings(s);
       setThresholdState((prev) => ({
         ...prev,
         [selectedChat]: {
           value: s.threshold,
-          mode:
-            Math.abs(s.threshold - MODE_PRESETS[s.mode]) > 0.005 ? "custom" : (s.mode as ModeSelection),
+          mode: Math.abs(s.threshold - MODE_PRESETS[normalizedMode]) > 0.005 ? "custom" : normalizedMode,
         },
       }));
       setStats(st);
@@ -198,12 +212,12 @@ function App() {
     setAutoRefresh((prev) => !prev);
   };
 
-  const handleModeSelect = async (mode: SettingsResponse["mode"]) => {
+  const handleModeSelect = async (mode: GroupMode) => {
     if (!chatId) return;
     const preset = MODE_PRESETS[mode];
     const clamped = Math.min(
       THRESHOLD_MAX,
-      Math.max(THRESHOLD_MIN, preset ?? (settings?.threshold ?? 0.62)),
+      Math.max(THRESHOLD_MIN, preset ?? (settings?.threshold ?? MODE_PRESETS.moderat)),
     );
     setThresholdState((prev) => ({ ...prev, [chatId]: { value: clamped, mode } }));
     const value = Number(clamped.toFixed(2));

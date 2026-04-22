@@ -12,7 +12,15 @@ type GroupItem = {
   lastActive: string;
   groupType?: string;
 };
-type ModeSelection = "precision" | "balanced" | "recall" | "custom";
+type GroupMode = "ketat" | "moderat" | "longgar";
+type ModeSelection = GroupMode | "custom";
+
+const MODE_OPTIONS: GroupMode[] = ["ketat", "moderat", "longgar"];
+const MODE_LABELS: Record<GroupMode, string> = {
+  ketat: "Ketat",
+  moderat: "Moderat",
+  longgar: "Longgar",
+};
 
 type Props = {
   manualMode: boolean;
@@ -30,7 +38,7 @@ type Props = {
   thresholdPreview: number;
   thresholdMin: number;
   thresholdMax: number;
-  onModeSelect: (mode: "precision" | "balanced" | "recall") => void;
+  onModeSelect: (mode: GroupMode) => void;
   onThresholdChange: (value: number) => void;
   onThresholdCommit: () => void;
 };
@@ -220,7 +228,7 @@ export const Dashboard: React.FC<Props> = ({
         <div>
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-1">Mode</h3>
           <div className="grid grid-cols-2 gap-2">
-            {(["precision", "balanced", "recall"] as const).map((mode) => {
+            {MODE_OPTIONS.map((mode) => {
               const active = modeSelection === mode;
               return (
                 <button
@@ -232,7 +240,7 @@ export const Dashboard: React.FC<Props> = ({
                       : "bg-slate-900/70 border-slate-700 text-slate-300 hover:border-primary-400/60 hover:text-white hover:-translate-y-0.5"
                   }`}
                 >
-                  {mode}
+                  {MODE_LABELS[mode]}
                 </button>
               );
             })}
