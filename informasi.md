@@ -46,7 +46,7 @@ Stack ini dibangun untuk mengawasi grup Telegram dan secara otomatis mendeteksi/
   ```
 
 ## Fitur Mini App
-- Pilih grup dan ubah mode moderasi (precision/balanced/recall).  
+- Pilih grup dan ubah mode moderasi (ketat/moderat/longgar).  
 - Slider threshold + retensi log.  
 - Metric cards, chart aktivitas, riwayat real-time, filter manual label/deteksi.  
 - Manual verification panel untuk melabeli pesan (hate/non-hate).  
@@ -59,7 +59,7 @@ Stack ini dibangun untuk mengawasi grup Telegram dan secara otomatis mendeteksi/
 - `/stats 24h` atau `/stats 7d` – ringkasan tindakan moderasi di interval waktu.
 - `/moderation_on` / `/moderation_off` – aktif/nonaktif moderasi otomatis.
 - `/set_threshold <nilai>` – ubah ambang pendeteksian manual (0–1).
-- `/set_mode <precision|balanced|recall>` – shortcut preset threshold.
+- `/set_mode <ketat|moderat|longgar>` – shortcut preset threshold.
 - `/mute <user_id> [menit]` – mute manual (default 30 menit).
 - `/ban <user_id>` – ban manual.
 - `/admins` – daftar admin yang tersimpan di backend.

@@ -1,4 +1,4 @@
-export type GroupMode = "precision" | "balanced" | "recall";
+export type GroupMode = "ketat" | "moderat" | "longgar";
 
 export interface PredictionResponse {
   prob_hate: number;

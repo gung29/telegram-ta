@@ -102,7 +102,7 @@ def _get_or_create_settings(db: Session, chat_id: int) -> GroupSettings:
             chat_id=chat_id,
             enabled=True,
             threshold=app_settings.default_threshold,
-            mode=GroupMode.balanced,
+            mode=GroupMode.moderat,
             retention_days=app_settings.retention_days,
         )
         db.add(settings)

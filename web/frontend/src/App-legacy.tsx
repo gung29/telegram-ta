@@ -53,15 +53,24 @@ const HISTORY_PAGE = 5;
 const REVIEW_PAGE = 5;
 const THRESHOLD_MIN = 0.2;
 const THRESHOLD_MAX = 0.95;
+type GroupMode = SettingsResponse["mode"];
 type ModeSelection = SettingsResponse["mode"] | "custom";
 type ActionFilter = "all" | "warn" | "block" | "allow";
 type TimeFilter = "all" | "24h" | "7d" | "30d";
 
-const MODE_PRESETS: Record<SettingsResponse["mode"], number> = {
-  precision: 0.561,
-  balanced: 0.561,
-  recall: 0.384,
+const MODE_PRESETS: Record<GroupMode, number> = {
+  ketat: 0.72,
+  moderat: 0.56,
+  longgar: 0.38,
 };
+
+const MODE_LABELS: Record<GroupMode, string> = {
+  ketat: "Ketat",
+  moderat: "Moderat",
+  longgar: "Longgar",
+};
+
+const MODE_OPTIONS: GroupMode[] = ["ketat", "moderat", "longgar"];
 
 const ACTION_META: Record<string, { label: string; tone: "success" | "warning" | "danger" | "muted" }> = {
   muted: { label: "Dimute", tone: "warning" },
@@ -134,12 +143,12 @@ export default function App() {
   const [resettingAction, setResettingAction] = useState<{ userId: number; action: "warned" | "muted" } | null>(null);
   const currentThresholdState = chatId ? thresholdState[chatId] : undefined;
   const derivedModeFromSettings = useMemo(() => {
-    if (!settings) return "balanced";
+    if (!settings) return "moderat";
     const preset = MODE_PRESETS[settings.mode];
     return Math.abs(settings.threshold - preset) > 0.005 ? "custom" : settings.mode;
   }, [settings]);
   const modeSelection: ModeSelection = currentThresholdState?.mode ?? derivedModeFromSettings;
-  const thresholdPreview = currentThresholdState?.value ?? settings?.threshold ?? 0.62;
+  const thresholdPreview = currentThresholdState?.value ?? settings?.threshold ?? MODE_PRESETS.moderat;
   const [manualFilter, setManualFilter] = useState<"all" | "pending" | "verified" | "hate" | "non-hate">("all");
   const [detectionFilter, setDetectionFilter] = useState<"all" | "hate" | "non-hate">("all");
   const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
@@ -1056,14 +1065,14 @@ export default function App() {
                 <div className="control-row">
                   <span>Mode</span>
                   <div className="tab-group">
-                    {(["precision", "balanced", "recall"] as SettingsResponse["mode"][]).map((mode) => (
+                    {MODE_OPTIONS.map((mode) => (
                       <button
                         key={mode}
                         type="button"
                         className={clsx("tab", modeSelection === mode && "active")}
                         onClick={() => handleModeSelect(mode)}
                       >
-                        {mode}
+                        {MODE_LABELS[mode]}
                       </button>
                     ))}
                     <button

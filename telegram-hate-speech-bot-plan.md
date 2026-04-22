@@ -41,7 +41,7 @@ Nginx reverse proxy (SSL) di server kamu
 - Perintah admin:
   - `/moderation_on` / `/moderation_off`
   - `/set_threshold 0.65`
-  - `/set_mode precision|balanced|recall`
+  - `/set_mode ketat|moderat|longgar`
   - `/stats [24h|7d]`
   - `/test <teks>`
   - `/whitelist_add` / `/whitelist_remove`

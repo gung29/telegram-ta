@@ -8,6 +8,8 @@ export class HttpError extends Error {
   }
 }
 
+export type GroupMode = "ketat" | "moderat" | "longgar";
+
 const baseFetch = async <T>(input: RequestInfo, init?: RequestInit): Promise<T> => {
   const response = await fetch(input, {
     ...init,
@@ -39,7 +41,7 @@ export interface SettingsResponse {
   chat_id: number;
   enabled: boolean;
   threshold: number;
-  mode: string;
+  mode: GroupMode;
   retention_days: number;
   updated_at: string;
 }
@@ -64,7 +66,7 @@ export interface GroupSummary {
   chat_id: number;
   enabled: boolean;
   threshold: number;
-  mode: string;
+  mode: GroupMode;
   updated_at: string;
   title?: string;
   group_type?: string;
@@ -176,6 +178,8 @@ export const upsertMemberModeration = (
     method: "POST",
     body: JSON.stringify(payload),
   });
+
+export const createMemberStatus = upsertMemberModeration;
 
 export const deleteMemberStatus = (chatId: number, userId: number, status: MemberStatus) =>
   baseFetch<void>(`/api/members/${userId}?${qs({ chat_id: chatId, status })}`, {

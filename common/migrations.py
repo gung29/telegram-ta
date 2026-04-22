@@ -34,6 +34,21 @@ def apply_schema_patches() -> None:
                 connection.execute(
                     text("UPDATE group_settings SET last_active = COALESCE(last_updated, CURRENT_TIMESTAMP)")
                 )
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE group_settings
+                    SET mode = CASE
+                        WHEN mode = 'precision' THEN 'ketat'
+                        WHEN mode = 'balanced' THEN 'moderat'
+                        WHEN mode = 'recall' THEN 'longgar'
+                        WHEN mode NOT IN ('ketat', 'moderat', 'longgar') THEN 'moderat'
+                        ELSE mode
+                    END
+                    """
+                )
+            )
 
     if "events" in tables:
         columns = _get_columns("events")

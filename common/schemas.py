@@ -3,9 +3,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .models import GroupMode, MemberStatus
+
+
+LEGACY_GROUP_MODE_MAP = {
+    "precision": GroupMode.ketat,
+    "balanced": GroupMode.moderat,
+    "recall": GroupMode.longgar,
+}
 
 
 class PredictionRequest(BaseModel):
@@ -25,6 +32,13 @@ class SettingsPayload(BaseModel):
     threshold: Optional[float] = Field(None, ge=0, le=1)
     mode: Optional[GroupMode] = None
     retention_days: Optional[int] = Field(None, ge=1, le=90)
+
+    @field_validator("mode", mode="before")
+    @classmethod
+    def normalize_mode(cls, value: object) -> object:
+        if isinstance(value, str):
+            return LEGACY_GROUP_MODE_MAP.get(value.lower(), value.lower())
+        return value
 
 
 class SettingsResponse(BaseModel):

@@ -21,7 +21,7 @@ import {
 } from "./apiClient";
 import { TTLCache } from "./cache";
 import { normalizeObfuscatedTerms } from "./textNormalization";
-import { EventPayload, MemberModeration, MemberStatus, SettingsResponse, UserActionSummary } from "./types";
+import { EventPayload, GroupMode, MemberModeration, MemberStatus, SettingsResponse, UserActionSummary } from "./types";
 
 const settingsCache = new TTLCache<SettingsResponse>(5_000);
 const backendAdminCache = new TTLCache<number[]>(120_000);
@@ -46,6 +46,27 @@ const PERMISSION_KEYS: Array<keyof ExtendedPermissions> = [
   "can_send_other_messages",
   "can_add_web_page_previews",
 ];
+
+const GROUP_MODE_PRESETS: Record<GroupMode, number> = {
+  ketat: 0.72,
+  moderat: 0.56,
+  longgar: 0.38,
+};
+
+const GROUP_MODE_LABELS: Record<GroupMode, string> = {
+  ketat: "Ketat",
+  moderat: "Moderat",
+  longgar: "Longgar",
+};
+
+const GROUP_MODE_ALIASES: Record<string, GroupMode> = {
+  ketat: "ketat",
+  moderat: "moderat",
+  longgar: "longgar",
+  precision: "ketat",
+  balanced: "moderat",
+  recall: "longgar",
+};
 
 const setManualStatus = (chatId: number, userId: number, status: MemberStatus) => {
   let chatMap = manualStatusCache.get(chatId);
@@ -791,12 +812,18 @@ const getNextModerationStep = (priorMuteCount: number): NextModeration => {
       await notifyAdminOnly(bot, msg);
       return;
     }
-    const value = match?.[1]?.toLowerCase();
-    if (!value || !["precision", "balanced", "recall"].includes(value)) {
-      return bot.sendMessage(chatId, "Gunakan: /set_mode precision|balanced|recall");
+    const rawValue = match?.[1]?.toLowerCase();
+    const value = rawValue ? GROUP_MODE_ALIASES[rawValue] : undefined;
+    if (!value) {
+      return bot.sendMessage(chatId, "Gunakan: /set_mode ketat|moderat|longgar");
     }
-    await setSettings(chatId, { mode: value as SettingsResponse["mode"] });
-    await bot.sendMessage(chatId, `Mode diubah ke ${bold(value)}.`, { parse_mode: "HTML" });
+    const threshold = GROUP_MODE_PRESETS[value];
+    await setSettings(chatId, { mode: value, threshold });
+    await bot.sendMessage(
+      chatId,
+      `Mode diubah ke ${bold(GROUP_MODE_LABELS[value])} dengan threshold ${threshold.toFixed(2)}.`,
+      { parse_mode: "HTML" },
+    );
   });
 
   bot.onText(/\/stats(?:@\w+)?(?:\s+(24h|7d))?/, async (msg: TelegramBot.Message, match: RegExpExecArray | null) => {

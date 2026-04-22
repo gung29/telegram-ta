@@ -14,9 +14,9 @@ from .timezone import now_local
 
 
 class GroupMode(str, Enum):
-    precision = "precision"
-    balanced = "balanced"
-    recall = "recall"
+    ketat = "ketat"
+    moderat = "moderat"
+    longgar = "longgar"
 
 
 class GroupSettings(Base):
@@ -25,7 +25,7 @@ class GroupSettings(Base):
     chat_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     threshold: Mapped[float] = mapped_column(Float, default=settings.default_threshold)
-    mode: Mapped[GroupMode] = mapped_column(SAEnum(GroupMode), default=GroupMode.balanced)
+    mode: Mapped[GroupMode] = mapped_column(SAEnum(GroupMode), default=GroupMode.moderat)
     retention_days: Mapped[int] = mapped_column(Integer, default=settings.retention_days)
     last_updated: Mapped[datetime] = mapped_column(DateTime, default=now_local)
     title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
