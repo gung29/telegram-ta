@@ -341,5 +341,5 @@ else:
     @app.get("/", response_class=HTMLResponse)
     async def placeholder() -> HTMLResponse:
         return HTMLResponse(
-            "<h1>Mini App belum dibuild</h1><p>Jalankan <code>cd web/frontend && npm install && npm run build</code> untuk menghasilkan aset.</p>",
+            "<h1>Mini App belum dibuild</h1><p>Jalankan <code>cd referensi-desain && npm install && npm run build</code> untuk menghasilkan aset.</p>",
         )

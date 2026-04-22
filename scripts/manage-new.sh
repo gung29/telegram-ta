@@ -69,7 +69,7 @@ case "$1" in
     pm2 list
     ;;
   *)
-    echo "Usage: scripts/manage.sh {start|stop|restart|status}"
+    echo "Usage: scripts/manage-new.sh {start|stop|restart|status}"
     exit 1
     ;;
 esac

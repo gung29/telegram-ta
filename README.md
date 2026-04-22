@@ -44,24 +44,28 @@ pip install -r requirements.txt
 
 ## Menjalankan Komponen
 
-### Alternatif: Docker / Docker Compose
+### Deploy VPS dengan `manage-new.sh`
 
-Cara paling cepat menjalankan keseluruhan stack (API + bot) adalah memakai Docker. Repository ini sudah memiliki `Dockerfile.api`, `Dockerfile.bot`, dan `docker-compose.yml`. Langkahnya:
+Jalur deploy yang dipakai repo ini adalah script `scripts/manage-new.sh`. Script ini akan:
 
-1. Pastikan `.env` diisi lengkap (token bot, API key, URL webhook/mini-app, dsb).
-2. Bangun dan jalankan container:
+- build frontend dari `referensi-desain`
+- menjalankan `api.app:app` di port `8000`
+- menjalankan `web.main:app` di port `8080`
+- build dan restart bot Node.js lewat `pm2`
 
-   ```bash
-   docker compose up -d --build
-   ```
+Contoh update di VPS:
 
-   - Service `api` otomatis membuild frontend (Vite) lalu menjalankan `uvicorn web.main:app` pada port 8080 (forward ke host).
-   - Service `bot` menjalankan compile TypeScript (`npm run build`) dan start dari `dist/index.js`.
-   - Volume `./data:/app/data` memastikan SQLite tetap persist.
+```bash
+cd /www/wwwroot/telegram-ta
+git pull
+source .venv/bin/activate
+pip install -r requirements.txt
+chmod +x scripts/manage-new.sh
+./scripts/manage-new.sh restart
+./scripts/manage-new.sh status
+```
 
-3. Untuk update kode dari lokal → server cukup `git pull` lalu `docker compose up -d --build`.
-
-Jika ingin mengganti port atau menambahkan reverse proxy (Nginx, Caddy, aaPanel), arahkan saja ke `localhost:8080` (API + Mini App) dan port webhook yang Anda expose di `.env`.
+Jika ingin mengganti port atau menambahkan reverse proxy (Nginx, Caddy, aaPanel), arahkan saja ke `localhost:8080` untuk Mini App dan `localhost:8081` untuk webhook bot.
 
 ### 1. Inference API
 
@@ -94,10 +98,10 @@ npm start        # run compiled bot
 1. **Frontend (npx / Vite)**
 
    ```bash
-   cd web/frontend
+   cd referensi-desain
    npm install
-   npm run dev        # atau: npx vite
-   npm run build      # produksi → output ke web/frontend/dist
+   npm run dev
+   npm run build      # produksi → output ke referensi-desain/dist
    ```
 
    Mode dev menjalankan Vite pada port 5173 (ideal untuk styling). Build production akan dipakai oleh FastAPI secara otomatis.
@@ -109,7 +113,7 @@ npm start        # run compiled bot
    uvicorn web.main:app --host 0.0.0.0 --port 8080 --reload
    ```
 
-   - FastAPI akan melayani `/api/*` (proxy ke inference API dengan validasi `initData`) dan menyajikan bundle React yang sudah dibuild dari `web/frontend/dist`.
+   - FastAPI akan melayani `/api/*` (proxy ke inference API dengan validasi `initData`) dan menyajikan bundle React yang sudah dibuild dari `referensi-desain/dist`.
    - Untuk pengembangan lokal tanpa Telegram, set `MINI_APP_DEV_MODE=true` dan tambahkan `?chat_id=...` pada URL (atau gunakan header `X-Debug-Chat-Id`) sehingga backend mengizinkan akses tanpa HMAC.
    - UI sudah seluruhnya dark-mode, responsive, dan mengikuti pedoman Telegram Mini App terbaru (menggunakan `window.Telegram.WebApp` API saat `npm run dev` / `npx vite` maupun produksi).
    - Fitur dashboard:
