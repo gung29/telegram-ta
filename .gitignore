@@ -15,4 +15,3 @@ web/frontend/node_modules/
 web/frontend/dist/
 bot/node_modules
 bot/dist/
-data/model/model.safetensors
