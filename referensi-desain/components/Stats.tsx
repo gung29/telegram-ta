@@ -20,7 +20,7 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
     try {
       const [s, a] = await Promise.all([
         fetchStats(chatId, windowKey),
-        fetchActivity(chatId, windowKey === "24h" ? 2 : windowKey === "7d" ? 7 : 30),
+        fetchActivity(chatId, windowKey === "24h" ? 1 : windowKey === "7d" ? 7 : 30),
       ]);
       setStats(s);
       setActivity(a);
@@ -37,11 +37,11 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
 
   // gunakan angka agregat langsung dari StatsResponse untuk ringkasan/distribusi
   const aggregated = useMemo(() => {
-    const warn = stats?.warned ?? 0;
-    const deleted = stats?.deleted ?? 0;
+    const warn = stats?.warn_only ?? stats?.warned ?? 0;
+    const muted = stats?.muted ?? 0;
     const blocked = stats?.blocked ?? 0;
-    const total = stats?.total_events ?? deleted; // jika total_events ada, ikuti API
-    return { warn, deleted, blocked, total };
+    const total = stats?.total_events ?? stats?.deleted ?? 0;
+    return { warn, muted, blocked, total };
   }, [stats]);
 
   const chartData = useMemo(() => {
@@ -50,11 +50,13 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
       const label = dayjs(p.date).isValid() ? dayjs(p.date).format(windowKey === "24h" ? "DD MMM HH:mm" : "DD MMM") : "";
       const del = p.deleted ?? 0;
       const warn = p.warned ?? 0;
+      const muted = p.muted ?? 0;
       const block = p.blocked ?? 0;
       return {
         name: label,
-        total: del, // total harian mengikuti field deleted (sesuai API)
+        total: del,
         warn,
+        muted,
         block,
       };
     });
@@ -62,8 +64,8 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
 
   const actionDistribution = useMemo(() => {
     return [
-      { name: "Deleted", value: aggregated.deleted, color: "#6366f1" },
       { name: "Warned", value: aggregated.warn, color: "#f59e0b" },
+      { name: "Muted", value: aggregated.muted, color: "#8b5cf6" },
       { name: "Blocked", value: aggregated.blocked, color: "#ef4444" },
     ];
   }, [aggregated]);
@@ -111,6 +113,7 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
             <div className="flex space-x-4 text-xs mb-4">
                 <span className="flex items-center text-blue-400"><span className="w-2 h-2 rounded-full bg-blue-400 mr-1"></span> Total</span>
                 <span className="flex items-center text-orange-400"><span className="w-2 h-2 rounded-full bg-orange-400 mr-1"></span> Warned</span>
+                <span className="flex items-center text-purple-400"><span className="w-2 h-2 rounded-full bg-purple-400 mr-1"></span> Muted</span>
                 <span className="flex items-center text-red-400"><span className="w-2 h-2 rounded-full bg-red-400 mr-1"></span> Blocked</span>
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 mb-3">
@@ -147,6 +150,7 @@ export const Stats: React.FC<Props> = ({ chatId }) => {
                         />
                         <Area type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
                         <Area type="monotone" dataKey="warn" stroke="#f97316" strokeWidth={2} fillOpacity={1} fill="url(#colorWarn)" />
+                        <Area type="monotone" dataKey="muted" stroke="#8b5cf6" strokeWidth={2} fillOpacity={0} fill="transparent" />
                         <Area type="monotone" dataKey="block" stroke="#ef4444" strokeWidth={2} fillOpacity={0} fill="transparent" />
                     </AreaChart>
                 </ResponsiveContainer>

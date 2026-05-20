@@ -102,6 +102,7 @@ export interface ActivityPoint {
   date: string;
   deleted: number;
   warned: number;
+  muted?: number;
   blocked: number;
 }
 

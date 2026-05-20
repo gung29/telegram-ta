@@ -163,6 +163,7 @@ class TimelinePoint(BaseModel):
     date: datetime
     deleted: int
     warned: int
+    muted: int = 0
     blocked: int
 
 

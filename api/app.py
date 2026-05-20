@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
-from sqlalchemy import case, desc, func
+from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 import httpx
 
@@ -88,6 +88,53 @@ ALLOW_PERMISSIONS: Dict[str, bool] = {
 ACTION_IGNORE = {"allowed", "bypassed_admin"}
 ACTION_WARNED = {"warned", "muted"}
 ACTION_BLOCKED = {"blocked", "banned"}
+
+
+def _window_cutoff(window: str) -> tuple[datetime, str]:
+    normalized = (window or "24h").lower()
+    if normalized == "24h":
+        return now_local() - timedelta(hours=24), normalized
+    if normalized == "7d":
+        return now_local() - timedelta(days=7), normalized
+    if normalized == "30d":
+        return now_local() - timedelta(days=30), normalized
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Window harus 24h, 7d, atau 30d")
+
+
+def _is_ignored_action(action: str | None) -> bool:
+    return (action or "").lower() in ACTION_IGNORE
+
+
+def _count_action_buckets(events: List[ModerationEvent]) -> Dict[str, int]:
+    warned = sum(1 for event in events if (event.action or "").lower() == "warned")
+    muted = sum(1 for event in events if (event.action or "").lower() == "muted")
+    blocked = sum(1 for event in events if (event.action or "").lower() in ACTION_BLOCKED)
+    total = len(events)
+    return {
+        "total": total,
+        "warned": warned,
+        "muted": muted,
+        "blocked": blocked,
+        "deleted": total,
+    }
+
+
+def _top_offenders(events: List[ModerationEvent], limit: int = 10) -> List[str]:
+    counts: Dict[str, int] = {}
+    labels: Dict[str, str] = {}
+    for event in events:
+        if event.user_id is not None:
+            key = f"id:{event.user_id}"
+            label = event.username or f"ID {event.user_id}"
+        elif event.username:
+            key = f"username:{event.username}"
+            label = event.username
+        else:
+            continue
+        counts[key] = counts.get(key, 0) + 1
+        labels[key] = label
+    ordered = sorted(counts.items(), key=lambda item: item[1], reverse=True)[:limit]
+    return [f"{labels[key]} ({count})" for key, count in ordered]
 
 
 def require_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> None:
@@ -422,47 +469,26 @@ def stats_endpoint(
     db: Session = Depends(get_db),
 ) -> StatsResponse:
     _require_group_chat(chat_id)
-    hours = 24 if window == "24h" else 24 * 7
-    cutoff = now_local() - timedelta(hours=hours)
+    cutoff, normalized_window = _window_cutoff(window)
     query = (
         db.query(ModerationEvent)
         .filter(ModerationEvent.chat_id == chat_id, ModerationEvent.created_at >= cutoff)
         .order_by(desc(ModerationEvent.created_at))
     )
     events = query.all()
-    actionable = [event for event in events if event.action not in ACTION_IGNORE]
-    warn_only = sum(1 for event in actionable if event.action == "warned")
-    muted = sum(1 for event in actionable if event.action == "muted")
-    banned = sum(1 for event in actionable if event.action in ACTION_BLOCKED)
-    # kompatibilitas lama
-    blocked = banned
-    warned = warn_only
-    # Pesan yang dihapus mencakup semua tindakan moderasi aktif (warn/mute/ban/block).
-    deleted = warn_only + muted + banned
-    offenders = (
-        db.query(ModerationEvent.username, func.count(ModerationEvent.id).label("cnt"))
-        .filter(
-            ModerationEvent.chat_id == chat_id,
-            ModerationEvent.created_at >= cutoff,
-            ModerationEvent.username.isnot(None),
-            ~ModerationEvent.action.in_(tuple(ACTION_IGNORE)),
-        )
-        .group_by(ModerationEvent.username)
-        .order_by(desc("cnt"))
-        .limit(5)
-        .all()
-    )
-    top_offenders = [f"{username} ({count})" for username, count in offenders if username]
+    actionable = [event for event in events if not _is_ignored_action(event.action)]
+    buckets = _count_action_buckets(actionable)
+    top_offenders = _top_offenders(actionable)
     return StatsResponse(
         chat_id=chat_id,
-        window=window,
-        total_events=len(actionable),
-        blocked=blocked,
-        warned=warned,
-        muted=muted,
-        warn_only=warn_only,
-        banned=banned,
-        deleted=deleted,
+        window=normalized_window,
+        total_events=buckets["total"],
+        blocked=buckets["blocked"],
+        warned=buckets["warned"],
+        muted=buckets["muted"],
+        warn_only=buckets["warned"],
+        banned=buckets["blocked"],
+        deleted=buckets["deleted"],
         top_offenders=top_offenders,
     )
 
@@ -665,36 +691,63 @@ def activity_endpoint(
     db: Session = Depends(get_db),
 ) -> ActivityResponse:
     _require_group_chat(chat_id)
-    cutoff = now_local() - timedelta(days=days)
-    warned_case = case((ModerationEvent.action.in_(tuple(ACTION_WARNED)), 1), else_=0)
-    blocked_case = case((ModerationEvent.action.in_(tuple(ACTION_BLOCKED)), 1), else_=0)
-    rows = (
-        db.query(
-            func.date(ModerationEvent.created_at).label("day"),
-            func.count(ModerationEvent.id).label("deleted"),
-            func.sum(warned_case).label("warned"),
-            func.sum(blocked_case).label("blocked"),
-        )
-        .filter(
-            ModerationEvent.chat_id == chat_id,
-            ModerationEvent.created_at >= cutoff,
-            ~ModerationEvent.action.in_(tuple(ACTION_IGNORE)),
-        )
-        .group_by(func.date(ModerationEvent.created_at))
-        .order_by(func.date(ModerationEvent.created_at))
+    span_days = max(1, min(days, 90))
+    now = now_local()
+    hourly = span_days <= 1
+    if hourly:
+        start = now.replace(minute=0, second=0, microsecond=0) - timedelta(hours=23)
+        bucket_dates = [start + timedelta(hours=idx) for idx in range(24)]
+
+        def bucket_for(value: datetime) -> datetime:
+            current = (_ensure_local_datetime(value) or now).replace(minute=0, second=0, microsecond=0)
+            return current
+
+    else:
+        start_date = now.date() - timedelta(days=span_days - 1)
+        start = datetime.combine(start_date, datetime.min.time(), tzinfo=LOCAL_TIMEZONE)
+        bucket_dates = [
+            datetime.combine(start_date + timedelta(days=idx), datetime.min.time(), tzinfo=LOCAL_TIMEZONE)
+            for idx in range(span_days)
+        ]
+
+        def bucket_for(value: datetime) -> datetime:
+            current = (_ensure_local_datetime(value) or now).date()
+            return datetime.combine(current, datetime.min.time(), tzinfo=LOCAL_TIMEZONE)
+
+    buckets: Dict[datetime, Dict[str, int]] = {
+        bucket: {"deleted": 0, "warned": 0, "muted": 0, "blocked": 0} for bucket in bucket_dates
+    }
+    events = (
+        db.query(ModerationEvent)
+        .filter(ModerationEvent.chat_id == chat_id, ModerationEvent.created_at >= start)
+        .order_by(ModerationEvent.created_at)
         .all()
     )
-    points = []
-    for row in rows:
-        normalized_day = _normalize_day(row.day)
-        points.append(
-            {
-                "date": datetime.combine(normalized_day, datetime.min.time(), tzinfo=LOCAL_TIMEZONE),
-                "deleted": row.deleted,
-                "warned": row.warned,
-                "blocked": row.blocked,
-            }
-        )
+    for event in events:
+        action = (event.action or "").lower()
+        if action in ACTION_IGNORE:
+            continue
+        bucket = bucket_for(event.created_at)
+        if bucket not in buckets:
+            continue
+        buckets[bucket]["deleted"] += 1
+        if action == "warned":
+            buckets[bucket]["warned"] += 1
+        elif action == "muted":
+            buckets[bucket]["muted"] += 1
+        elif action in ACTION_BLOCKED:
+            buckets[bucket]["blocked"] += 1
+
+    points = [
+        {
+            "date": bucket,
+            "deleted": values["deleted"],
+            "warned": values["warned"],
+            "muted": values["muted"],
+            "blocked": values["blocked"],
+        }
+        for bucket, values in buckets.items()
+    ]
     return ActivityResponse(chat_id=chat_id, points=points)
 
 

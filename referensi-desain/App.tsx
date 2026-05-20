@@ -98,7 +98,7 @@ function App() {
     const total = stats?.total_events ?? 0;
     const deleted = stats?.deleted ?? 0;
     const warnOnly = stats?.warn_only ?? stats?.warned ?? 0;
-    const muted = stats?.muted ?? stats?.warned ?? 0;
+    const muted = stats?.muted ?? 0;
     return [
       { title: "Total aksi", value: total, subtitle: "Periode ini" },
       { title: "Dihapus", value: deleted, subtitle: "Confidence tinggi" },
